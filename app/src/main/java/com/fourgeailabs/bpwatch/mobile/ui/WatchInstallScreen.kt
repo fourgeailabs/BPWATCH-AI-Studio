@@ -27,6 +27,9 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
@@ -77,6 +80,10 @@ fun WatchInstallScreen(
     calibrationModel: CalibrationModel? = null,
     calibrationPoints: List<CalibrationPoint> = emptyList(),
     onOpenCalibrate: () -> Unit,
+    batterySaverThreshold: Int = 20,
+    batterySaverEnabled: Boolean = true,
+    onBatterySaverThresholdChange: (Int) -> Unit = {},
+    onBatterySaverEnabledChange: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -257,8 +264,13 @@ fun WatchInstallScreen(
             wrist = wrist,
         )
 
-        // Battery-saving mode telemetry & status (<20% sensor polling reduction)
-        WatchBatterySaverCard()
+        // Battery-saving mode telemetry & customizable sensor polling reduction
+        WatchBatterySaverCard(
+            threshold = batterySaverThreshold,
+            enabled = batterySaverEnabled,
+            onThresholdChange = onBatterySaverThresholdChange,
+            onEnabledChange = onBatterySaverEnabledChange,
+        )
 
         Spacer(Modifier.height(4.dp))
         Text(
@@ -725,11 +737,16 @@ fun WatchCalibrationsCard(
 }
 
 @Composable
-fun WatchBatterySaverCard() {
+fun WatchBatterySaverCard(
+    threshold: Int = 20,
+    enabled: Boolean = true,
+    onThresholdChange: (Int) -> Unit = {},
+    onEnabledChange: (Boolean) -> Unit = {},
+) {
     val batteryLevel by WatchLiveState.batteryLevel.collectAsState()
     val isSaverActive by WatchLiveState.batterySaverActive.collectAsState()
     val level = batteryLevel ?: 100
-    val isLow = (batteryLevel != null && level < 20) || isSaverActive
+    val isLow = enabled && ((batteryLevel != null && level < threshold) || isSaverActive)
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
@@ -740,7 +757,7 @@ fun WatchBatterySaverCard() {
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -765,29 +782,17 @@ fun WatchBatterySaverCard() {
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                         )
                         Text(
-                            if (batteryLevel != null) "Watch battery: $level%"
-                            else "Awaiting watch battery telemetry",
+                            if (batteryLevel != null) "Watch battery: $level% (Trigger: <$threshold%)"
+                            else "Awaiting watch battery telemetry (Trigger: <$threshold%)",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            if (isLow) MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        if (isLow) "SAVER ACTIVE (<20%)" else "NORMAL (≥20%)",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        color = if (isLow) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                    )
-                }
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onEnabledChange,
+                )
             }
 
             LinearProgressIndicator(
@@ -800,17 +805,51 @@ fun WatchBatterySaverCard() {
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
 
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    "Battery Saver Trigger Threshold",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                )
+                Text(
+                    "$threshold%",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(15, 20, 25, 30, 40).forEach { pct ->
+                    FilterChip(
+                        selected = threshold == pct,
+                        onClick = { onThresholdChange(pct) },
+                        label = { Text("$pct%") },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
             Text(
                 if (isLow) {
-                    "Automatic Battery-Saving Mode is active on the watch because battery is below 20%:\n" +
+                    "Automatic Battery-Saving Mode is ACTIVE on the watch because battery is below $threshold%:\n" +
                         "• Accelerometer: UI delay (60ms) → NORMAL delay (200ms)\n" +
                         "• BP Check Cadence: Relaxed to ≥ 60 minutes\n" +
                         "• HR Recording: Relaxed from 10 min to 30 min\n" +
                         "• Optical Sensor Sample Window: Reduced from 30s to 15s\n" +
                         "• Continuous HR Upload: Aggregation window extended from 60s to 180s\n" +
                         "• Bluetooth Live Mirroring: Throttled from 10s to 30s"
+                } else if (enabled) {
+                    "Automatic Battery-Saving Mode will activate on the watch whenever battery level drops below $threshold%. Sensor polling rates, accelerometer sampling frequencies, and background health checks are dynamically throttled to preserve battery."
                 } else {
-                    "Automatic Battery-Saving Mode automatically activates on the watch whenever battery drops below 20%. Sensor sampling rates, accelerometer frequencies, and background check cadences are reduced dynamically to extend battery life."
+                    "Battery-Saving Mode is currently disabled. The watch will maintain standard high-fidelity sensor polling rates regardless of battery level."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

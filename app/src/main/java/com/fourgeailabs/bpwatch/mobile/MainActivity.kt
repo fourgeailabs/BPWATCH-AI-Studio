@@ -462,12 +462,18 @@ private fun BpWatchPhoneApp(
                     val wrist by viewModel.wrist.collectAsState()
                     val model by viewModel.calibrationModel.collectAsState()
                     val points by viewModel.calibrationPoints.collectAsState()
+                    val batThreshold by viewModel.batterySaverThreshold.collectAsState()
+                    val batEnabled by viewModel.batterySaverEnabled.collectAsState()
                     WatchInstallScreen(
                         wrist = wrist,
                         onWristChange = { viewModel.setWrist(it) },
                         calibrationModel = model,
                         calibrationPoints = points,
                         onOpenCalibrate = { goTo(4) },
+                        batterySaverThreshold = batThreshold,
+                        batterySaverEnabled = batEnabled,
+                        onBatterySaverThresholdChange = { viewModel.setBatterySaverThreshold(it) },
+                        onBatterySaverEnabledChange = { viewModel.setBatterySaverEnabled(it) },
                     )
                 }
                 9 -> BodyProfileSettingsScreen(viewModel)

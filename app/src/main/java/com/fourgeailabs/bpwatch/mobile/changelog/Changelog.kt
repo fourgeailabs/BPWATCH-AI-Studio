@@ -20,14 +20,16 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
-        versionName = "2.08.00",
-        versionCode = 40,
-        date = "2026-09-22",
+        versionName = "2.06.01",
+        versionCode = 41,
+        date = "2026-09-23",
         notes = listOf(
-            "Updated GitHub Actions CI/CD to use Gradle 9.3.1 compatible with AGP 9.1.1",
-            "Switched GitHub workflow to runner's native Android SDK environment for reliable artifact builds",
-            "Enabled automatic SDK component downloads in gradle.properties",
-            "Maintained signature and package stability across phone and Wear OS modules",
+            "Resolved Health Connect skin temperature permission granting on Google Pixel 10 Pro XL and Samsung Health",
+            "Added customizable Battery Saving Mode in Watch Settings: user-defined trigger threshold (10%-50%) and live status indicator",
+            "Automatic dynamic sensor polling throttling when watch battery drops below user threshold",
+            "Real-time visual progress indicator and Compose chart tracking sensor telemetry synchronization between Wearable and Samsung Health",
+            "Consolidated Watch Location (Left / Right wrist selection) and Calibration profiles exclusively inside the Watch section of the Settings menu",
+            "Enhanced clinical BP check reporting with sensor-driven real-time posture detection (Sitting, Standing, Walking, Lying down) and body-side location logging",
         ),
     ),
     ChangelogEntry(

@@ -40,6 +40,8 @@ object Link {
     const val PATH_BATTERY_STATE = "/bpwatch/battery_state"
     const val KEY_BATTERY_LEVEL = "battery_level"
     const val KEY_BATTERY_SAVER_ACTIVE = "battery_saver_active"
+    const val KEY_BATTERY_SAVER_THRESHOLD = "battery_saver_threshold"
+    const val KEY_BATTERY_SAVER_ENABLED = "battery_saver_enabled"
 
 
     // ------------------------------------------------------------------

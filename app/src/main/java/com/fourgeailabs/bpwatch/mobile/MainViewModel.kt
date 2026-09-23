@@ -68,6 +68,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val userProfile: StateFlow<UserProfile> = profileStore.profile
     val monitoringConfig: StateFlow<MonitoringConfig> = monitoringPrefs.config
     val wrist: StateFlow<String> = monitoringPrefs.wrist
+    val batterySaverThreshold: StateFlow<Int> = monitoringPrefs.batterySaverThreshold
+    val batterySaverEnabled: StateFlow<Boolean> = monitoringPrefs.batterySaverEnabled
     var isWristConfigured: Boolean by mutableStateOf(monitoringPrefs.isWristConfigured())
         private set
     var hcAvailable: Boolean by mutableStateOf(hc.isAvailable)
@@ -568,6 +570,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             WatchConfigSender.sendWristSet(getApplication(), side)
         }
+    }
+
+    fun setBatterySaverThreshold(threshold: Int) {
+        monitoringPrefs.setBatterySaverThreshold(threshold)
+        pushMonitoringConfig()
+    }
+
+    fun setBatterySaverEnabled(enabled: Boolean) {
+        monitoringPrefs.setBatterySaverEnabled(enabled)
+        pushMonitoringConfig()
     }
 
     /**

@@ -105,6 +105,9 @@ object WatchConfigSender {
             putBoolean(Link.KEY_BP_LOW_ENABLED, config.bpLowEnabled)
             putInt(Link.KEY_SYS_LOW, config.sysLow)
             putInt(Link.KEY_DIA_LOW, config.diaLow)
-            putString(Link.KEY_WRIST, com.fourgeailabs.bpwatch.mobile.monitoring.MonitoringPrefs(context).wrist.value)
+            val prefs = com.fourgeailabs.bpwatch.mobile.monitoring.MonitoringPrefs(context)
+            putString(Link.KEY_WRIST, prefs.wrist.value)
+            putInt(Link.KEY_BATTERY_SAVER_THRESHOLD, prefs.batterySaverThreshold.value)
+            putBoolean(Link.KEY_BATTERY_SAVER_ENABLED, prefs.batterySaverEnabled.value)
         }.toByteArray()
 }

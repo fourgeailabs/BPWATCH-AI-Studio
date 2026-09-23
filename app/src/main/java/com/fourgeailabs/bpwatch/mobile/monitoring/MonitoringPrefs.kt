@@ -168,6 +168,28 @@ class MonitoringPrefs(context: Context) {
         diaLow = c.diaLow.coerceIn(MonitoringConfig.BP_DIA_MIN, MonitoringConfig.BP_DIA_MAX),
     )
 
+    // ------------------------------------------------------------------
+    // Battery Saver threshold selection (10%..50%, default 20%).
+    // Reduces sensor polling frequency when the watch battery level drops
+    // to the given percent set by the user in settings.
+    // ------------------------------------------------------------------
+    private val _batterySaverThreshold = MutableStateFlow(prefs.getInt(KEY_BATTERY_SAVER_THRESHOLD, 20).coerceIn(10, 50))
+    val batterySaverThreshold: StateFlow<Int> = _batterySaverThreshold.asStateFlow()
+
+    private val _batterySaverEnabled = MutableStateFlow(prefs.getBoolean(KEY_BATTERY_SAVER_ENABLED, true))
+    val batterySaverEnabled: StateFlow<Boolean> = _batterySaverEnabled.asStateFlow()
+
+    fun setBatterySaverThreshold(percent: Int) {
+        val coerced = percent.coerceIn(10, 50)
+        prefs.edit().putInt(KEY_BATTERY_SAVER_THRESHOLD, coerced).apply()
+        _batterySaverThreshold.value = coerced
+    }
+
+    fun setBatterySaverEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BATTERY_SAVER_ENABLED, enabled).apply()
+        _batterySaverEnabled.value = enabled
+    }
+
     companion object {
         private const val PREFS = "bpwatch_monitoring"
         private const val KEY_CONFIGURED = "configured"
@@ -184,5 +206,7 @@ class MonitoringPrefs(context: Context) {
         private const val KEY_DIA_LOW = "dia_low"
         private const val KEY_SNORE_DETECTION = "snore_detection"
         private const val KEY_WRIST = "wrist_side"
+        private const val KEY_BATTERY_SAVER_THRESHOLD = "battery_saver_threshold"
+        private const val KEY_BATTERY_SAVER_ENABLED = "battery_saver_enabled"
     }
 }

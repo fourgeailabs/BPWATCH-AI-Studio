@@ -307,49 +307,6 @@ fun HomeScreen(
                 }
             }
 
-            if (!viewModel.isWristConfigured) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            "Which wrist is your watch on?",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Text(
-                            "Selecting your wrist helps BPWatch record body posture and side location accurately for Health Connect and Samsung Health.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            val currentWrist by viewModel.wrist.collectAsState()
-                            FilterChip(
-                                selected = currentWrist == "left",
-                                onClick = { viewModel.setWrist("left") },
-                                label = { Text("Left wrist") },
-                                modifier = Modifier.weight(1f),
-                            )
-                            FilterChip(
-                                selected = currentWrist == "right",
-                                onClick = { viewModel.setWrist("right") },
-                                label = { Text("Right wrist") },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
-            }
-
             if (!dashboard.hcReadGranted) {
                 Card(
                     colors = CardDefaults.cardColors(

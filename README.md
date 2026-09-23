@@ -18,27 +18,14 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.08.00 (Current)
-- **GitHub Actions CI/CD Compatibility**: Upgraded GitHub Actions Gradle workflow runner to Gradle 9.3.1 to ensure 100% compatibility with Android Gradle Plugin (AGP) 9.1.1.
-- **Native Android SDK Environment**: Configured CI build runner to use GitHub's native pre-installed Android SDK toolchain and automated platform licensing, eliminating third-party action failures.
-- **Automated SDK Component Downloads**: Configured `android.builder.sdkDownload=true` in `gradle.properties` for seamless platform/build-tools resolution.
-- **Package and Key Consistency**: Guaranteed fixed `applicationId` (`com.fourgeailabs.bpwatch`) and deterministic debug keystore signing for continuous APK upgrades.
-
-### v2.07.00
-- **Automatic Battery-Saving Mode (< 20% Watch Battery)**: Implemented an intelligent power-saving mode on the Wear OS watch that automatically triggers when watch battery capacity falls below 20%.
-- **Dynamic Sensor Polling Reduction**: Reduces high-frequency accelerometer sensor listening from `SENSOR_DELAY_UI` (60ms) to `SENSOR_DELAY_NORMAL` (200ms) and step sensor from `FASTEST` to `NORMAL`.
-- **Extended Background Check Intervals**: Relaxes scheduled blood pressure check intervals to a minimum of 60 minutes (preserving daily morning checks) and relaxes periodic continuous heart rate recording from 10 minutes to 30 minutes.
-- **Shortened Optical PPG Measurement Window**: Cuts active PPG sensor sampling duration from 30 seconds to 15 seconds, halving optical LED battery consumption during low battery states.
-- **Throttled Live Mirroring & Batch Uploads**: Throttles live Bluetooth mirroring updates from 10 seconds to 30 seconds and extends continuous HR batch upload aggregation from 60 seconds to 180 seconds to dramatically cut radio wakeups.
-- **Real-Time Battery Telemetry & Settings Integration**: Added a "Watch Battery & Power Saver" card in the Watch section of the Settings menu, showing real-time battery telemetry, saver status, and active power conservation parameters.
-- **Wear OS Battery Broadcast Receiver**: Registered `BatteryStateReceiver` to dynamically detect battery drops, power-save mode changes, and recovery events, automatically re-arming background alarms to match the active power budget.
-
-### v2.06.01
-- **Visual Real-Time Sync Indicator & Compose Charts**: Implemented an animated multi-node visual progress indicator and custom Compose chart displaying real-time sensor data transmission from the wearable (Galaxy Watch) through the processing gateway into Samsung Health.
-- **Dynamic Circular Progress Gauge & Telemetry Chart**: Real-time transmission progress arc, animated pipeline flow (Watch Sensors → BP Gateway → Samsung Health), and live telemetry sparkline tracking heart rate, blood pressure, latency, and posture packets.
-- **Consolidated Watch Section Settings**: Relocated watch location (Left / Right wrist) and all calibration controls directly into the dedicated Watch section of the Settings menu.
-- **Watch Calibrations Card**: Dedicated interface for sensor orientation bias calibration (3-axis accelerometer lateral bias inversion) and cuff blood pressure regression model state with one-tap access to calibration.
-- **Interactive Telemetry Sync Testing**: One-tap trigger in the UI allowing users to test and verify real-time data flow directly to Samsung Health via Health Connect.
+### v2.06.01 (Current)
+- **Health Connect Skin Temperature Permissions**: Resolved permission grant issues for Skin Temperature on Android / Google Pixel 10 Pro XL and Samsung Health by declaring `READ_SKIN_TEMPERATURE` and `WRITE_SKIN_TEMPERATURE` permissions and integrating them with the Health Connect permission manager.
+- **Customizable Battery-Saving Mode**: Added a battery-saving mode in the Watch section of the Settings menu allowing users to configure the trigger percentage (e.g. 15%, 20%, 25%, 30%, 40%) or toggle it on/off.
+- **Dynamic Sensor Polling Reduction**: When watch battery drops below the configured percentage, sensor polling frequency, accelerometer sampling delay (`SENSOR_DELAY_UI` -> `SENSOR_DELAY_NORMAL`), PPG sampling duration, and Bluetooth telemetry mirroring are automatically throttled to preserve battery.
+- **Visual Real-Time Sync Indicator & Compose Charts**: Built an animated multi-node progress indicator and Compose chart displaying real-time sensor data transmission from the wearable (Galaxy Watch) through the processing gateway to Samsung Health and vice-versa.
+- **Consolidated Watch Settings**: Located watch wrist location (Left / Right wrist selection) and calibration management inside the Watch section of the Settings menu.
+- **Sensor Orientation Bias Toggle**: Select Left or Right wrist in Settings to adjust lateral sensor bias in data processing algorithms.
+- **Sensor-Driven Posture & Body-Side BP Reporting**: Enhanced clinical accuracy of BP checks by detecting user posture (Sitting, Standing, Walking, Lying down, Reclining) and wrist location from watch sensors and reporting to Samsung Health via Health Connect.
 
 ### v2.06.00
 - **Sensor Orientation Bias Toggle**: Added an explicit Material 3 segmented toggle in the Settings menu (and Monitoring & Alerts) allowing users to select 'Left' or 'Right' wrist.
