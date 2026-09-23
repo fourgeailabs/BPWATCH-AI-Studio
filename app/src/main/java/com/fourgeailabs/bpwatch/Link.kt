@@ -221,6 +221,32 @@ object Link {
     const val PATH_BODY_FAT_SYNC = "/bpwatch/body_fat_sync"
     const val PATH_SENSOR_TELEMETRY = "/bpwatch/sensor_telemetry"
 
+    // ------------------------------------------------------------------
+    // Body Fat / BIA Electrodes & Scan contract (v2.7.4)
+    // ------------------------------------------------------------------
+    const val PATH_BIA_REQUEST = "/bpwatch/bia_request"
+    const val PATH_BIA_STATE = "/bpwatch/bia_state"
+    const val PATH_BIA_RESULT = "/bpwatch/bia_result"
+    const val PATH_BIA_CANCEL = "/bpwatch/bia_cancel"
+
+    const val KEY_BIA_CONTACT_DETECTED = "bia_contact_detected"
+    const val KEY_BIA_TOP_BUTTON_TOUCHED = "bia_top_button_touched"
+    const val KEY_BIA_BOTTOM_BUTTON_TOUCHED = "bia_bottom_button_touched"
+    const val KEY_BIA_SCAN_STATE = "bia_scan_state"
+    const val KEY_BIA_PROGRESS = "bia_progress"
+    const val KEY_BIA_ELAPSED_MS = "bia_elapsed_ms"
+    const val KEY_BIA_MESSAGE = "bia_message"
+
+    object BiaScanState {
+        const val IDLE = "idle"
+        const val WAITING_FOR_CONTACT = "waiting_contact"
+        const val SCANNING = "scanning"
+        const val CONTACT_LOST = "contact_lost"
+        const val COMPLETED = "completed"
+        const val CANCELLED = "cancelled"
+        const val ERROR = "error"
+    }
+
     // Monitoring-config payload (PATH_MONITORING_CONFIG). Versioned with
     // KEY_CONFIG_V so the watch can ignore fields from newer phone builds.
     const val KEY_CONFIG_V = "v"

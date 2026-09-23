@@ -139,14 +139,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         combine(readings, repo.healthLogs) { rs, logs -> buildTimeline(rs, logs) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val healthLogs: StateFlow<List<HealthLog>> = repo.healthLogs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val hcPermissions: Set<String> get() = hc.permissions
     val hcReadPermissions: Set<String> get() = hc.readPermissions
     val healthConnectManager: HealthConnectManager get() = hc
     val dashboardMetrics: StateFlow<DashboardMetrics> get() = _dashboard
 
     suspend fun recordBodyFat(percent: Double, time: Instant = Instant.now()) {
-        if (hc.isAvailable) {
-            hc.writeBodyFat(percent, time)
+        try {
+            if (hc.isAvailable) {
+                hc.writeBodyFat(percent, time)
+            }
+        } catch (_: Exception) {
+        }
+        try {
+            repo.addHealthLog(
+                HealthLog(
+                    timestamp = time.toEpochMilli(),
+                    kind = "body_fat",
+                    value = percent,
+                    label = "%.1f%%".format(percent),
+                )
+            )
+        } catch (_: Exception) {
         }
         refreshDashboard()
     }
@@ -372,13 +389,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         } catch (_: Exception) {
             false
         }
-        if (!readGranted) {
-            _dashboard.value = DashboardMetrics(hcReadGranted = false)
-            return
-        }
-        val t: TodayMetrics? = try {
-            hc.readTodayMetrics()
-        } catch (_: Exception) {
+        val t: TodayMetrics? = if (readGranted) {
+            try {
+                hc.readTodayMetrics()
+            } catch (_: Exception) {
+                null
+            }
+        } else {
             null
         }
         // v2.3.1: the watch's own step count for today, used as a fallback
@@ -394,7 +411,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // profile fallback). Nothing faked — null when either is missing.
         val profile = userProfile.value
         val heightCm = profile.heightCm
-        val weightKg = t?.weightKg ?: profile.weightKg?.toDouble()
+        val weightKg = t?.weightKg ?: profile.weightKg?.toDouble() ?: healthLogs.value.firstOrNull { it.kind == HealthLogKind.WEIGHT }?.value?.let { it / 2.20462 }
         val bmi = if (heightCm != null && heightCm > 0f &&
             weightKg != null && weightKg > 0
         ) {
@@ -436,22 +453,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             null
         }
 
-        val skinTempC = t?.skinTempDeltaC ?: latest?.skinTempC?.toDouble()
-        val hrvRmssd = t?.hrvRmssd ?: latest?.hrvRmssd?.toDouble()
-        val restingHr = t?.restingHr?.toInt() ?: latest?.heartRate?.toInt()
-        val bodyFat = t?.bodyFatPct
+        val skinTempC = t?.skinTempDeltaC 
+            ?: healthLogs.value.firstOrNull { it.kind == "skin_temp" }?.value
+            ?: latest?.skinTempC?.toDouble()
+        val hrvRmssd = t?.hrvRmssd 
+            ?: healthLogs.value.firstOrNull { it.kind == "hrv" }?.value
+            ?: latest?.hrvRmssd?.toDouble()
+        val restingHr = t?.restingHr?.toInt() 
+            ?: healthLogs.value.firstOrNull { it.kind == "resting_hr" }?.value?.toInt()
+            ?: latest?.heartRate?.toInt()
+        val bodyFat = t?.bodyFatPct 
+            ?: healthLogs.value.firstOrNull { it.kind == "body_fat" }?.value
+        val sleepHours = t?.sleepHours
+            ?: healthLogs.value.firstOrNull { it.kind == "sleep" }?.value
+        val hydrationMl = t?.hydrationLiters?.let { it * 1000.0 }
+            ?: healthLogs.value.firstOrNull { it.kind == HealthLogKind.HYDRATION }?.value
+        val weightLb = weightKg?.let { it * 2.20462 }
 
         _dashboard.value = DashboardMetrics(
-            // v2.3.1: prefer Health Connect's merged cross-device steps
-            // (phone + watch, matches Samsung Health); the watch-only
-            // count is the fallback.
             steps = t?.steps ?: watchStepsToday,
             distanceMi = t?.distanceMeters?.let { it / 1609.344 },
             caloriesKcal = t?.caloriesKcal,
-            heartRateBpm = t?.heartRateBpm?.toInt(),
-            weightLb = t?.weightKg?.let { it * 2.20462 },
-            sleepHours = t?.sleepHours,
-            hydrationMl = t?.hydrationLiters?.let { it * 1000.0 },
+            heartRateBpm = t?.heartRateBpm?.toInt() ?: latest?.heartRate?.toInt(),
+            weightLb = weightLb,
+            sleepHours = sleepHours,
+            hydrationMl = hydrationMl,
             stress = stress,
             bmi = bmi,
             bmiLabel = bmiLabel,
@@ -459,7 +485,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             hrvRmssd = hrvRmssd,
             bodyFatPercentage = bodyFat,
             skinTempC = skinTempC,
-            hcReadGranted = true,
+            hcReadGranted = readGranted,
         )
     }
 

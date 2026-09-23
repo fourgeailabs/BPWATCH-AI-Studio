@@ -135,6 +135,10 @@ fun HomeScreen(
 ) {
     val readings by viewModel.readings.collectAsState()
     val dashboard by viewModel.dashboard.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val homeLayoutManager = remember { com.fourgeailabs.bpwatch.mobile.prefs.HomeLayoutManager(context) }
+    val cardOrder by homeLayoutManager.cardOrder.collectAsState()
+    val cardVisibility by homeLayoutManager.cardVisibility.collectAsState()
     var showLogSheet by remember { mutableStateOf(false) }
     var showBodyFatReader by remember { mutableStateOf(false) }
 
@@ -169,222 +173,222 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            // --- BP hero: deep navy card, crimson heart, white ECG line identity.
-            // Tapping jumps to the blood-pressure trend.
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Navy),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onOpenTrends(TrendMetric.BLOOD_PRESSURE) },
-            ) {
-                Row(
-                    modifier = Modifier.padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TintedIcon(
-                        Icons.Filled.MonitorHeart,
-                        contentDescription = null,
-                        size = 56.dp,
-                        containerColor = Crimson,
-                        contentColor = Color.White,
-                    )
-                    Spacer(Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            "BP estimate",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color.White.copy(alpha = 0.7f),
-                        )
-                        Text(
-                            if (sys != null && dia != null) "$sys / $dia" else "No data",
-                            style = MaterialTheme.typography.displayMedium,
-                            color = Color.White,
-                        )
-                        Text(
-                            "mmHg · " + if (sys != null) {
-                                if (estimated) "Estimated" else "Cuff reading"
-                            } else {
-                                "Calibrate to begin"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.7f),
-                        )
-                        // v2.4.6: HR captured at the time of the BP recording.
-                        if (bpHrBpm != null) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "$bpHrBpm bpm · at recording",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Crimson.copy(alpha = 0.9f),
-                            )
-                        }
-                        val postureText = when (latest?.bodyPosition) {
-                            com.fourgeailabs.bpwatch.Link.Posture.STANDING_UP -> "Standing"
-                            com.fourgeailabs.bpwatch.Link.Posture.LYING_DOWN -> "Lying down"
-                            com.fourgeailabs.bpwatch.Link.Posture.RECLINING -> "Reclining"
-                            com.fourgeailabs.bpwatch.Link.Posture.SITTING_DOWN -> "Sitting"
-                            else -> latest?.activity?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
-                        }
-                        val locText = when (latest?.measurementLocation) {
-                            com.fourgeailabs.bpwatch.Link.MeasurementLocation.RIGHT_WRIST -> "Right wrist"
-                            com.fourgeailabs.bpwatch.Link.MeasurementLocation.LEFT_WRIST -> "Left wrist"
-                            com.fourgeailabs.bpwatch.Link.MeasurementLocation.RIGHT_UPPER_ARM -> "Right arm"
-                            com.fourgeailabs.bpwatch.Link.MeasurementLocation.LEFT_UPPER_ARM -> "Left arm"
-                            else -> null
-                        }
-                        val clinicalContext = listOfNotNull(postureText, locText).joinToString(" · ")
-                        if (clinicalContext.isNotEmpty()) {
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                clinicalContext,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.85f),
-                            )
-                        }
-                        // v2.3 phone-triggered BP check: asks the watch to sample
-                        // now, over the Data Layer. v2.7.3: while measuring, the
-                        // hero shows the beating heart wrapped in a completing loading circle
-                        // that fills smoothly from 0% to 100% over the duration.
-                        Spacer(Modifier.height(10.dp))
-                        if (bpStatus is BpCheckState.Status.Measuring) {
-                            val measuringState = bpStatus as BpCheckState.Status.Measuring
-                            val requestTs = measuringState.requestTs
-                            var elapsedMs by remember(requestTs) { mutableLongStateOf(0L) }
-                            LaunchedEffect(requestTs) {
-                                val startTime = if (requestTs > 0L) requestTs else System.currentTimeMillis()
-                                while (true) {
-                                    elapsedMs = (System.currentTimeMillis() - startTime).coerceAtLeast(0L)
-                                    delay(50L)
-                                }
-                            }
-                            val totalDurationMs = 30_000L
-                            val progress = (elapsedMs / totalDurationMs.toFloat()).coerceIn(0f, 1f)
-                            val remainingSec = ((totalDurationMs - elapsedMs).coerceAtLeast(0L) / 1000L)
-                            val percent = (progress * 100).toInt()
-
-                            val liveHr by WatchLiveState.liveHr.collectAsState()
-                            val liveBpm = liveHr?.takeIf { it > 0f }?.toInt()
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                MeasuringHeart(liveHr = liveHr, progress = progress)
-                                Spacer(Modifier.width(14.dp))
-                                Column {
-                                    Text(
-                                        "Measuring… ${remainingSec}s (${percent}%)",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        if (liveBpm != null) "$liveBpm bpm · Keep arm still"
-                                        else "Sit still, arm at heart level",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = Color.White.copy(alpha = 0.7f),
-                                    )
-                                }
-                            }
-                        } else {
-                            OutlinedButton(
-                                onClick = { viewModel.requestBpCheck() },
-                                // Retry stays available after a failure or when no
-                                // watch is connected; a live check swaps the button
-                                // for the measuring indicator above.
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.8f)),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.White,
-                                    disabledContentColor = Color.White.copy(alpha = 0.6f),
-                                ),
+            // Dynamically render home cards according to user's layout preferences
+            cardOrder.forEach { cardId ->
+                if (cardVisibility[cardId] != false) {
+                    when (cardId) {
+                        com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.HERO_BP -> {
+                            // --- BP hero: deep navy card, crimson heart, white ECG line identity.
+                            // Tapping jumps to the blood-pressure trend.
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Navy),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onOpenTrends(TrendMetric.BLOOD_PRESSURE) },
                             ) {
-                                Text("Check now")
+                                Row(
+                                    modifier = Modifier.padding(18.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TintedIcon(
+                                        Icons.Filled.MonitorHeart,
+                                        contentDescription = null,
+                                        size = 56.dp,
+                                        containerColor = Crimson,
+                                        contentColor = Color.White,
+                                    )
+                                    Spacer(Modifier.width(16.dp))
+                                    Column {
+                                        Text(
+                                            "BP estimate",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = Color.White.copy(alpha = 0.7f),
+                                        )
+                                        Text(
+                                            if (sys != null && dia != null) "$sys / $dia" else "No data",
+                                            style = MaterialTheme.typography.displayMedium,
+                                            color = Color.White,
+                                        )
+                                        Text(
+                                            "mmHg · " + if (sys != null) {
+                                                if (estimated) "Estimated" else "Cuff reading"
+                                            } else {
+                                                "Calibrate to begin"
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White.copy(alpha = 0.7f),
+                                        )
+                                        if (bpHrBpm != null) {
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                "$bpHrBpm bpm · at recording",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = Crimson.copy(alpha = 0.9f),
+                                            )
+                                        }
+                                        val postureText = when (latest?.bodyPosition) {
+                                            com.fourgeailabs.bpwatch.Link.Posture.STANDING_UP -> "Standing"
+                                            com.fourgeailabs.bpwatch.Link.Posture.LYING_DOWN -> "Lying down"
+                                            com.fourgeailabs.bpwatch.Link.Posture.RECLINING -> "Reclining"
+                                            com.fourgeailabs.bpwatch.Link.Posture.SITTING_DOWN -> "Sitting"
+                                            else -> latest?.activity?.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
+                                        }
+                                        val locText = when (latest?.measurementLocation) {
+                                            com.fourgeailabs.bpwatch.Link.MeasurementLocation.RIGHT_WRIST -> "Right wrist"
+                                            com.fourgeailabs.bpwatch.Link.MeasurementLocation.LEFT_WRIST -> "Left wrist"
+                                            com.fourgeailabs.bpwatch.Link.MeasurementLocation.RIGHT_UPPER_ARM -> "Right arm"
+                                            com.fourgeailabs.bpwatch.Link.MeasurementLocation.LEFT_UPPER_ARM -> "Left arm"
+                                            else -> null
+                                        }
+                                        val clinicalContext = listOfNotNull(postureText, locText).joinToString(" · ")
+                                        if (clinicalContext.isNotEmpty()) {
+                                            Spacer(Modifier.height(2.dp))
+                                            Text(
+                                                clinicalContext,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.White.copy(alpha = 0.85f),
+                                            )
+                                        }
+                                        Spacer(Modifier.height(10.dp))
+                                        if (bpStatus is BpCheckState.Status.Measuring) {
+                                            val measuringState = bpStatus as BpCheckState.Status.Measuring
+                                            val requestTs = measuringState.requestTs
+                                            var elapsedMs by remember(requestTs) { mutableLongStateOf(0L) }
+                                            LaunchedEffect(requestTs) {
+                                                val startTime = if (requestTs > 0L) requestTs else System.currentTimeMillis()
+                                                while (true) {
+                                                    elapsedMs = (System.currentTimeMillis() - startTime).coerceAtLeast(0L)
+                                                    delay(50L)
+                                                }
+                                            }
+                                            val totalDurationMs = 30_000L
+                                            val progress = (elapsedMs / totalDurationMs.toFloat()).coerceIn(0f, 1f)
+                                            val remainingSec = ((totalDurationMs - elapsedMs).coerceAtLeast(0L) / 1000L)
+                                            val percent = (progress * 100).toInt()
+
+                                            val liveHr by WatchLiveState.liveHr.collectAsState()
+                                            val liveBpm = liveHr?.takeIf { it > 0f }?.toInt()
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                MeasuringHeart(liveHr = liveHr, progress = progress)
+                                                Spacer(Modifier.width(14.dp))
+                                                Column {
+                                                    Text(
+                                                        "Measuring… ${remainingSec}s (${percent}%)",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                    )
+                                                    Text(
+                                                        if (liveBpm != null) "$liveBpm bpm · Keep arm still"
+                                                        else "Sit still, arm at heart level",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = Color.White.copy(alpha = 0.7f),
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            OutlinedButton(
+                                                onClick = { viewModel.requestBpCheck() },
+                                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.8f)),
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    contentColor = Color.White,
+                                                    disabledContentColor = Color.White.copy(alpha = 0.6f),
+                                                ),
+                                            ) {
+                                                Text("Check now")
+                                            }
+                                        }
+                                        val bpErrorText = when (bpStatus) {
+                                            is BpCheckState.Status.Failed ->
+                                                (bpStatus as BpCheckState.Status.Failed).message
+                                            is BpCheckState.Status.NoWatch -> "No watch connected."
+                                            else -> null
+                                        }
+                                        if (bpErrorText != null) {
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                bpErrorText,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.White.copy(alpha = 0.7f),
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
-                        val bpErrorText = when (bpStatus) {
-                            is BpCheckState.Status.Failed ->
-                                (bpStatus as BpCheckState.Status.Failed).message
-                            is BpCheckState.Status.NoWatch -> "No watch connected."
-                            else -> null
+                        com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.PRIMARY_ACTIONS -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Button(
+                                    onClick = { showLogSheet = true },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(Icons.Filled.Add, contentDescription = null)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Log")
+                                }
+                                Button(
+                                    onClick = onOpenSleep,
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(Icons.Filled.Bedtime, contentDescription = null)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Sleep")
+                                }
+                            }
                         }
-                        if (bpErrorText != null) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                bpErrorText,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.7f),
+                        com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.HC_STATUS -> {
+                            if (!dashboard.hcReadGranted) {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                    ),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        TintedIcon(Icons.Filled.Info, contentDescription = null, size = 40.dp)
+                                        Spacer(Modifier.width(12.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text("Tiles are empty", style = MaterialTheme.typography.titleSmall)
+                                            Text(
+                                                "Connect Health Connect to fill them with your real data.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        OutlinedButton(onClick = onOpenSettings) { Text("Settings") }
+                                    }
+                                }
+                            }
+                        }
+                        com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.METRIC_GRID -> {
+                            MetricGrid(
+                                dashboard = dashboard,
+                                onOpenTrends = onOpenTrends,
+                                onOpenBodyFatReader = { showBodyFatReader = true },
                             )
                         }
-                    }
-                }
-            }
-
-            // --- Primary actions.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Button(
-                    onClick = { showLogSheet = true },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Log")
-                }
-                Button(
-                    onClick = onOpenSleep,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Filled.Bedtime, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Sleep")
-                }
-            }
-
-            if (!dashboard.hcReadGranted) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        TintedIcon(Icons.Filled.Info, contentDescription = null, size = 40.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Tiles are empty", style = MaterialTheme.typography.titleSmall)
+                        com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.SNORE_CARD -> {
+                            SnoreCard(viewModel = viewModel, onOpenSnore = onOpenSnore)
+                        }
+                        com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.DISCLAIMER -> {
                             Text(
-                                "Connect Health Connect to fill them with your real data.",
+                                "BPWatch gives wellness estimates from your own cuff calibration. " +
+                                    "It is not a medical device. Check with a cuff before making health decisions.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 4.dp),
                             )
                         }
-                        OutlinedButton(onClick = onOpenSettings) { Text("Settings") }
+                        else -> {}
                     }
                 }
             }
-
-            // --- Metric grid: real data only, nothing invented.
-            MetricGrid(
-                dashboard = dashboard,
-                onOpenTrends = onOpenTrends,
-                onOpenBodyFatReader = { showBodyFatReader = true },
-            )
-
-            // --- Real-time HRV dashboard component from watch sensor stream
-            HrvLiveCard(dashboard = dashboard, onOpenTrends = onOpenTrends)
-
-            // --- Snoring card (v2.4.2): full card with last night's episodes,
-            // total minutes and a 7-night chart. Tap opens the Snore screen.
-            SnoreCard(viewModel = viewModel, onOpenSnore = onOpenSnore)
-
-            Text(
-                "BPWatch gives wellness estimates from your own cuff calibration. " +
-                    "It is not a medical device. Check with a cuff before making health decisions.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 4.dp),
-            )
         }
 
     if (showLogSheet) {
@@ -1002,263 +1006,6 @@ private fun KeepScreenAwakeWhileMeasuring(measuring: Boolean) {
                 if (wakeLock?.isHeld == true) wakeLock?.release()
             } catch (_: Exception) {
             }
-        }
-    }
-}
-
-/**
- * Real-time Heart Rate Variability (HRV) dashboard component.
- * Displays live RMSSD streaming from the watch sensor stream with
- * autonomic recovery interpretation and a live waveform sparkline.
- */
-@Composable
-private fun HrvLiveCard(
-    dashboard: DashboardMetrics,
-    onOpenTrends: (TrendMetric) -> Unit,
-) {
-    val liveHrv by WatchLiveState.liveHrv.collectAsState()
-    val liveHrvAt by WatchLiveState.liveHrvAt.collectAsState()
-    val liveHistory by WatchLiveState.liveHrvHistory.collectAsState()
-    val isFresh = liveHrv != null && liveHrvAt > 0L && WatchLiveState.isLiveHrvFresh()
-
-    val currentHrv = if (isFresh) liveHrv?.toDouble() else (dashboard.hrvRmssd ?: liveHrv?.toDouble())
-    val hrvVal = currentHrv?.toInt()
-
-    val statusText = when {
-        hrvVal == null -> "Awaiting watch stream"
-        hrvVal >= 60 -> "Optimal Recovery · High"
-        hrvVal >= 35 -> "Balanced · Normal"
-        else -> "Elevated Strain · Low"
-    }
-
-    val autonomicNote = when {
-        hrvVal == null -> "Real-time beat-to-beat variations streamed from PPG optical sensor."
-        hrvVal >= 60 -> "High parasympathetic tone (rest, recovery & restorative state)."
-        hrvVal >= 35 -> "Healthy autonomic equilibrium between physical strain and recovery."
-        else -> "Sympathetic dominance detected (physical exertion or elevated stress level)."
-    }
-
-    val accentColor = when {
-        hrvVal == null -> Color(0xFF00897B)
-        hrvVal >= 60 -> Color(0xFF00897B)
-        hrvVal >= 35 -> Color(0xFF00ACC1)
-        else -> Color(0xFFEA8600)
-    }
-
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("hrv_live_card")
-            .clickable { onOpenTrends(TrendMetric.HRV) },
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(accentColor.copy(alpha = 0.15f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.GraphicEq,
-                        contentDescription = "HRV",
-                        tint = accentColor,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp),
-                ) {
-                    Text(
-                        "Heart Rate Variability",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        if (isFresh) "Live watch sensor stream · RMSSD" else "Beat-to-beat variation · RMSSD",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (isFresh) {
-                    Surface(
-                        color = LiveGreen.copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.padding(end = 4.dp),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .background(LiveGreen, CircleShape),
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                "LIVE",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = LiveGreen,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
-                    }
-                }
-                Icon(
-                    Icons.Filled.ChevronRight,
-                    contentDescription = "Open HRV Trends",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(
-                            text = hrvVal?.let { "$it" } ?: "--",
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = "ms",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 6.dp),
-                        )
-                    }
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = accentColor,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-
-            // Real-time sparkline graph canvas
-            val historySamples = remember(liveHistory, hrvVal) {
-                if (liveHistory.isNotEmpty()) {
-                    liveHistory
-                } else if (hrvVal != null) {
-                    listOf(hrvVal.toFloat())
-                } else {
-                    emptyList()
-                }
-            }
-
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-            ) {
-                val w = size.width
-                val h = size.height
-                val padY = 6.dp.toPx()
-                val plotH = h - padY * 2
-
-                // Baseline dashed line
-                drawLine(
-                    color = Color.Gray.copy(alpha = 0.2f),
-                    start = Offset(0f, h / 2),
-                    end = Offset(w, h / 2),
-                    strokeWidth = 1.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
-                )
-
-                if (historySamples.size >= 2) {
-                    val minVal = (historySamples.minOrNull() ?: 20f).coerceAtMost(20f)
-                    val maxVal = (historySamples.maxOrNull() ?: 80f).coerceAtLeast(minVal + 10f)
-                    val range = (maxVal - minVal).coerceAtLeast(1f)
-
-                    val stepX = w / (historySamples.size - 1)
-                    val points = historySamples.mapIndexed { idx, v ->
-                        val norm = (v - minVal) / range
-                        Offset(idx * stepX, padY + plotH * (1f - norm))
-                    }
-
-                    val strokePath = Path().apply {
-                        moveTo(points[0].x, points[0].y)
-                        for (i in 1 until points.size) {
-                            val prev = points[i - 1]
-                            val curr = points[i]
-                            val midX = (prev.x + curr.x) / 2f
-                            cubicTo(midX, prev.y, midX, curr.y, curr.x, curr.y)
-                        }
-                    }
-
-                    val fillPath = Path().apply {
-                        addPath(strokePath)
-                        lineTo(points.last().x, h)
-                        lineTo(points.first().x, h)
-                        close()
-                    }
-
-                    drawPath(
-                        path = fillPath,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                accentColor.copy(alpha = 0.35f),
-                                accentColor.copy(alpha = 0.02f),
-                            ),
-                            startY = 0f,
-                            endY = h,
-                        ),
-                    )
-
-                    drawPath(
-                        path = strokePath,
-                        color = accentColor,
-                        style = Stroke(
-                            width = 2.5.dp.toPx(),
-                            cap = StrokeCap.Round,
-                            join = StrokeJoin.Round,
-                        ),
-                    )
-
-                    // Draw glowing pulse dot on latest sample point
-                    val lastPt = points.last()
-                    drawCircle(
-                        color = accentColor.copy(alpha = 0.3f),
-                        radius = 6.dp.toPx(),
-                        center = lastPt,
-                    )
-                    drawCircle(
-                        color = accentColor,
-                        radius = 3.5.dp.toPx(),
-                        center = lastPt,
-                    )
-                } else if (hrvVal != null) {
-                    // Smooth idle wave illustration
-                    val strokePath = Path().apply {
-                        moveTo(0f, h * 0.5f)
-                        cubicTo(w * 0.25f, h * 0.2f, w * 0.35f, h * 0.8f, w * 0.5f, h * 0.5f)
-                        cubicTo(w * 0.65f, h * 0.2f, w * 0.75f, h * 0.8f, w, h * 0.5f)
-                    }
-                    drawPath(
-                        path = strokePath,
-                        color = accentColor,
-                        style = Stroke(
-                            width = 2.dp.toPx(),
-                            cap = StrokeCap.Round,
-                        ),
-                    )
-                }
-            }
-
-            Text(
-                text = autonomicNote,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

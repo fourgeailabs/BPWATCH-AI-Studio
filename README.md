@@ -18,7 +18,15 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.07.03 (Current)
+### v2.07.04 (Current)
+- **Interactive Trends Menu with Clickable Trend Cards**: Replaced the horizontal filter chips slider with a responsive grid of interactive cards representing all 14 wellness metrics (Blood Pressure, Heart Rate, Resting HR, HRV, Stress, Sleep, Steps, Distance, Calories, Weight, Body Fat, Skin Temp, Hydration, BMI).
+- **Most Current Data on Every Trend Card**: Every trend card displays its latest recorded measurement value, units, status badge, and thematic accent icon directly on the card face.
+- **Dedicated Trend Detail Views**: Tapping any card opens its detailed historical chart with multi-range time selectors (Hour, Day, Week, Month, Year, All), statistical aggregates (Min, Max, Average), and one-tap switching to other trends.
+- **Unified Health Connect & Local Telemetry Reporting**: Integrated fallback and merging logic across Body Fat (BIA sensor scans + Health Connect), Resting HR, HRV, Skin Temperature, and Sleep so trends always display data regardless of source.
+- **Hardened Historical Sleep Polling**: Fixed Health Connect sleep query boundaries to prevent future timestamp rejections and added 30-day fallback queries.
+- **Streamlined Home Screen Layout**: Consolidated health telemetry into standard Material 3 tiles in the customizable home grid, removing redundant cards.
+
+### v2.07.03
 - **Determinate Loading Circle for Blood Pressure Measurements**: Replaced the indeterminate spinning animation with a smooth determinate circular progress indicator that completes from 0% to 100% over the 30-second measurement cycle, displaying live seconds countdown, completion percentage, and active heart rate.
 - **Body Fat Index (BIA) Reader with Determinate Scan Circle**: Built an interactive Bioelectrical Impedance Analysis (BIA) body composition scanner with a determinate 15-second loading circle, real-time status feedback, and instant sync to Health Connect.
 - **Home and Trends Quick Launchers**: Added instant access to the Body Fat scanner directly from the Home screen Body Fat health tile and the Trends graph view.

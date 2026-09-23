@@ -159,6 +159,22 @@ class WatchListenerService : WearableListenerService() {
                     }
                 }
             }
+            Link.PATH_BIA_REQUEST -> {
+                WatchState.triggerBia()
+                val bia = BiaSensorManager.getInstance(this)
+                bia.startScan()
+                try {
+                    val intent = android.content.Intent(this, MainActivity::class.java).apply {
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        putExtra("action", "bia_scan")
+                    }
+                    startActivity(intent)
+                } catch (_: Exception) {}
+            }
+            Link.PATH_BIA_CANCEL -> {
+                val bia = BiaSensorManager.getInstance(this)
+                bia.cancelScan()
+            }
         }
     }
 

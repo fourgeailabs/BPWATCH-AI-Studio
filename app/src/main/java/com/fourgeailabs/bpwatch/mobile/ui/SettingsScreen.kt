@@ -1,6 +1,7 @@
 package com.fourgeailabs.bpwatch.mobile.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.NewReleases
@@ -35,6 +37,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -86,6 +89,7 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit,
     onOpenChangelog: () -> Unit,
     onOpenReminders: () -> Unit = {},
+    onOpenHomeLayout: () -> Unit = {},
 ) {
     // v2.4.0: Settings is a hub — every section is a clickable card that
     // opens that section's own screen (back button returns here).
@@ -96,6 +100,7 @@ fun SettingsScreen(
         Quad(Icons.Filled.MonitorHeart, "Monitoring & alerts", "Check schedule, thresholds, alerts", onOpenMonitoring),
         Quad(Icons.Filled.Bedtime, "Sleep", "Snore detection, sleep times and diagnostics", onOpenSleep),
         Quad(Icons.Filled.Notifications, "Reminders", "Daily and custom-day weight check alerts", onOpenReminders),
+        Quad(Icons.Filled.GridOn, "Home layout", "Choose visible cards and arrange home screen order", onOpenHomeLayout),
         Quad(Icons.Filled.Tune, "Calibration", "Cuff readings and model status", onOpenCalibration),
         Quad(Icons.Filled.Info, "About", "Version, credits and links", onOpenAbout),
         Quad(Icons.Filled.NewReleases, "What's new", "Release history, newest first", onOpenChangelog),
@@ -858,43 +863,33 @@ fun SnoreCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                OutlinedTextField(
-                    value = "%02d:%02d".format(startH, startM),
-                    onValueChange = { input ->
-                        val parts = input.split(":")
-                        if (parts.size == 2) {
-                            val h = parts[0].toIntOrNull()?.coerceIn(0, 23) ?: startH
-                            val m = parts[1].toIntOrNull()?.coerceIn(0, 59) ?: startM
-                            startH = h
-                            startM = m
-                            onUpdateSleepSchedule(startH, startM, endH, endM)
-                        }
-                    },
-                    label = { Text("Bedtime (start)") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = "%02d:%02d".format(endH, endM),
-                    onValueChange = { input ->
-                        val parts = input.split(":")
-                        if (parts.size == 2) {
-                            val h = parts[0].toIntOrNull()?.coerceIn(0, 23) ?: endH
-                            val m = parts[1].toIntOrNull()?.coerceIn(0, 59) ?: endM
-                            endH = h
-                            endM = m
-                            onUpdateSleepSchedule(startH, startM, endH, endM)
-                        }
-                    },
-                    label = { Text("Wakeup (end)") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                )
-            }
+            // Bedtime 12h Picker
+            TimePicker12hSection(
+                title = "Bedtime (start)",
+                hour24 = startH,
+                minute = startM,
+                onTimeChanged = { h, m ->
+                    startH = h
+                    startM = m
+                    onUpdateSleepSchedule(startH, startM, endH, endM)
+                },
+                presets = listOf(21 to 0, 22 to 0, 22 to 30, 23 to 0, 23 to 30, 0 to 0),
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            // Wakeup 12h Picker
+            TimePicker12hSection(
+                title = "Wakeup (end)",
+                hour24 = endH,
+                minute = endM,
+                onTimeChanged = { h, m ->
+                    endH = h
+                    endM = m
+                    onUpdateSleepSchedule(startH, startM, endH, endM)
+                },
+                presets = listOf(6 to 0, 6 to 30, 7 to 0, 7 to 30, 8 to 0, 8 to 30),
+            )
 
             if (enabled && !listening) {
                 // Manual start only makes sense inside the overnight window;
@@ -923,7 +918,219 @@ fun SnoreCard(
 }
 
 /**
+ * Reusable 12-hour time picker section with AM/PM segmented buttons, steppers, and quick-set presets.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimePicker12hSection(
+    title: String,
+    hour24: Int,
+    minute: Int,
+    onTimeChanged: (hour24: Int, minute: Int) -> Unit,
+    presets: List<Pair<Int, Int>> = emptyList(),
+) {
+    fun from24h(h24: Int): Pair<Int, Boolean> {
+        val pm = h24 >= 12
+        val h12 = when (val h = h24 % 12) {
+            0 -> 12
+            else -> h
+        }
+        return Pair(h12, pm)
+    }
+
+    fun to24h(h12: Int, pm: Boolean): Int {
+        val h = h12.coerceIn(1, 12)
+        return if (pm) {
+            if (h == 12) 12 else h + 12
+        } else {
+            if (h == 12) 0 else h
+        }
+    }
+
+    val (currentH12, currentIsPm) = from24h(hour24)
+    var hour12 by remember(hour24) { androidx.compose.runtime.mutableIntStateOf(currentH12) }
+    var isPm by remember(hour24) { mutableStateOf(currentIsPm) }
+    var curMin by remember(minute) { androidx.compose.runtime.mutableIntStateOf(minute.coerceIn(0, 59)) }
+    var hourInput by remember(hour24) { mutableStateOf(currentH12.toString()) }
+    var minInput by remember(minute) { mutableStateOf("%02d".format(minute.coerceIn(0, 59))) }
+
+    fun emit(h: Int, m: Int, pm: Boolean) {
+        val safeH = h.coerceIn(1, 12)
+        val safeM = m.coerceIn(0, 59)
+        hour12 = safeH
+        curMin = safeM
+        isPm = pm
+        hourInput = safeH.toString()
+        minInput = "%02d".format(safeM)
+        onTimeChanged(to24h(safeH, pm), safeM)
+    }
+
+    Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "%d:%02d %s".format(hour12, curMin, if (isPm) "PM" else "AM"),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                // AM / PM Segmented control
+                SingleChoiceSegmentedButtonRow {
+                    SegmentedButton(
+                        selected = !isPm,
+                        onClick = { emit(hour12, curMin, false) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        label = { Text("AM", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+                    )
+                    SegmentedButton(
+                        selected = isPm,
+                        onClick = { emit(hour12, curMin, true) },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        label = { Text("PM", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+                    )
+                }
+            }
+
+            // Hour and Minute stepper controls
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Hour
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Hour (1–12)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val next = if (hour12 <= 1) 12 else hour12 - 1
+                                emit(next, curMin, isPm)
+                            },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Text("-", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                        OutlinedTextField(
+                            value = hourInput,
+                            onValueChange = { s ->
+                                val digits = s.filter { it.isDigit() }.take(2)
+                                hourInput = digits
+                                digits.toIntOrNull()?.let { if (it in 1..12) emit(it, curMin, isPm) }
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                val next = if (hour12 >= 12) 1 else hour12 + 1
+                                emit(next, curMin, isPm)
+                            },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Text("+", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // Minute
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Minute (00–59)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val next = (curMin - 5 + 60) % 60
+                                emit(hour12, next, isPm)
+                            },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Text("-", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                        OutlinedTextField(
+                            value = minInput,
+                            onValueChange = { s ->
+                                val digits = s.filter { it.isDigit() }.take(2)
+                                minInput = digits
+                                digits.toIntOrNull()?.let { if (it in 0..59) emit(hour12, it, isPm) }
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                            modifier = Modifier.weight(1f),
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                val next = (curMin + 5) % 60
+                                emit(hour12, next, isPm)
+                            },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Text("+", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            if (presets.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    presets.forEach { (presetH24, presetM) ->
+                        val (pH12, pPm) = from24h(presetH24)
+                        val isSelected = hour24 == presetH24 && minute == presetM
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                emit(pH12, presetM, pPm)
+                            },
+                            label = {
+                                Text("%d:%02d %s".format(pH12, presetM, if (pPm) "PM" else "AM"), style = MaterialTheme.typography.labelSmall)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Weight check and health routine reminders card.
+ * Supports full 12-hour time format with AM/PM selection, direct manual time entry,
+ * steppers, and quick-set presets.
  */
 @Composable
 fun RemindersCard(
@@ -934,8 +1141,9 @@ fun RemindersCard(
     onSave: (enabled: Boolean, hour: Int, minute: Int, daysCsv: String) -> Unit,
 ) {
     var isEnabled by remember(enabled) { mutableStateOf(enabled) }
-    var currentHour by remember(hour) { mutableStateOf(hour) }
-    var currentMinute by remember(minute) { mutableStateOf(minute) }
+    var curHour by remember(hour) { androidx.compose.runtime.mutableIntStateOf(hour.coerceIn(0, 23)) }
+    var curMinute by remember(minute) { androidx.compose.runtime.mutableIntStateOf(minute.coerceIn(0, 59)) }
+
     var selectedDays by remember(daysCsv) {
         mutableStateOf(daysCsv.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet())
     }
@@ -945,10 +1153,18 @@ fun RemindersCard(
         4 to "Thu", 5 to "Fri", 6 to "Sat", 7 to "Sun"
     )
 
+    val presets = listOf(
+        7 to 0,   // 7:00 AM
+        8 to 0,   // 8:00 AM
+        12 to 0,  // 12:00 PM
+        18 to 0,  // 6:00 PM
+        21 to 0,  // 9:00 PM
+    )
+
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -971,63 +1187,87 @@ fun RemindersCard(
                     onCheckedChange = {
                         isEnabled = it
                         val csv = selectedDays.sorted().joinToString(",")
-                        onSave(isEnabled, currentHour, currentMinute, csv)
+                        onSave(isEnabled, curHour, curMinute, csv)
                     },
                 )
             }
 
             if (isEnabled) {
-                Text(
-                    "Reminder Time:",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                OutlinedTextField(
-                    value = "%02d:%02d".format(currentHour, currentMinute),
-                    onValueChange = { input ->
-                        val parts = input.split(":")
-                        if (parts.size == 2) {
-                            val h = parts[0].toIntOrNull()?.coerceIn(0, 23) ?: currentHour
-                            val m = parts[1].toIntOrNull()?.coerceIn(0, 59) ?: currentMinute
-                            currentHour = h
-                            currentMinute = m
-                            val csv = selectedDays.sorted().joinToString(",")
-                            onSave(isEnabled, currentHour, currentMinute, csv)
-                        }
+                // Scheduled Time 12h Picker
+                TimePicker12hSection(
+                    title = "Scheduled Time",
+                    hour24 = curHour,
+                    minute = curMinute,
+                    onTimeChanged = { h24, m ->
+                        curHour = h24
+                        curMinute = m
+                        val csv = selectedDays.sorted().joinToString(",")
+                        onSave(isEnabled, h24, m, csv)
                     },
-                    label = { Text("Time (HH:MM 24h)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
+                    presets = presets,
                 )
 
-                Text(
-                    "Repeat on Days:",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    dayLabels.forEach { (dayIndex, dayName) ->
-                        val isSelected = selectedDays.contains(dayIndex)
-                        OutlinedButton(
-                            onClick = {
-                                val nextSet = if (isSelected) {
-                                    if (selectedDays.size > 1) selectedDays - dayIndex else selectedDays
-                                } else {
-                                    selectedDays + dayIndex
-                                }
-                                selectedDays = nextSet
-                                val csv = nextSet.sorted().joinToString(",")
-                                onSave(isEnabled, currentHour, currentMinute, csv)
-                            },
-                            colors = if (isSelected) androidx.compose.material3.ButtonDefaults.buttonColors()
-                            else androidx.compose.material3.ButtonDefaults.outlinedButtonColors(),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                            modifier = Modifier.padding(horizontal = 2.dp),
-                        ) {
-                            Text(dayName, style = MaterialTheme.typography.labelSmall)
+                // Repeat Days selection
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "Repeat Days",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = {
+                                    selectedDays = (1..7).toSet()
+                                    val csv = selectedDays.sorted().joinToString(",")
+                                    onSave(isEnabled, curHour, curMinute, csv)
+                                },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            ) {
+                                Text("Every day", style = MaterialTheme.typography.labelSmall)
+                            }
+                            TextButton(
+                                onClick = {
+                                    selectedDays = setOf(1, 2, 3, 4, 5)
+                                    val csv = selectedDays.sorted().joinToString(",")
+                                    onSave(isEnabled, curHour, curMinute, csv)
+                                },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            ) {
+                                Text("Weekdays", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        dayLabels.forEach { (dayInt, label) ->
+                            val isSelected = selectedDays.contains(dayInt)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    selectedDays = if (isSelected) {
+                                        if (selectedDays.size > 1) selectedDays - dayInt else selectedDays
+                                    } else {
+                                        selectedDays + dayInt
+                                    }
+                                    val csv = selectedDays.sorted().joinToString(",")
+                                    onSave(isEnabled, curHour, curMinute, csv)
+                                },
+                                label = {
+                                    Text(
+                                        label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else null,
+                                    )
+                                },
+                            )
                         }
                     }
                 }

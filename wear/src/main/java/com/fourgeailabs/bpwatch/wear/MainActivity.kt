@@ -43,6 +43,7 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.Chip
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CircularProgressIndicator
+import kotlin.math.roundToInt
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
@@ -136,9 +137,34 @@ class MainActivity : ComponentActivity() {
             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (keyCode == android.view.KeyEvent.KEYCODE_STEM_1 || keyCode == android.view.KeyEvent.KEYCODE_STEM_PRIMARY) {
+            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = true, isDown = true)
+        } else if (keyCode == android.view.KeyEvent.KEYCODE_STEM_2) {
+            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = false, isDown = true)
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent?): Boolean {
+        if (keyCode == android.view.KeyEvent.KEYCODE_STEM_1 || keyCode == android.view.KeyEvent.KEYCODE_STEM_PRIMARY) {
+            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = true, isDown = false)
+        } else if (keyCode == android.view.KeyEvent.KEYCODE_STEM_2) {
+            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = false, isDown = false)
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        if (intent.getStringExtra("action") == "bia_scan") {
+            WatchState.triggerBia()
+        }
+    }
 }
 
-private enum class UiState { IDLE, MEASURING, SENDING, DONE, ERROR, OFF_BODY }
+private enum class UiState { IDLE, MEASURING, SENDING, DONE, ERROR, OFF_BODY, BIA_SCAN }
 
 private const val MEASURE_DURATION_MS = 30_000L
 
@@ -180,6 +206,22 @@ private fun BpWatchApp(
     val latestHrBpm by WatchState.latestHrBpm.collectAsState()
     val latestHrTs by WatchState.latestHrTs.collectAsState()
     val scope = rememberCoroutineScope()
+
+    val biaManager = remember { BiaSensorManager.getInstance(appContext) }
+    val biaScanState by biaManager.scanState.collectAsState()
+    val biaProgress by biaManager.progress.collectAsState()
+    val isContactDetected by biaManager.isContactDetected.collectAsState()
+    val isTopTouched by biaManager.isTopTouched.collectAsState()
+    val isBottomTouched by biaManager.isBottomTouched.collectAsState()
+    val liveImpedance by biaManager.liveImpedanceOhms.collectAsState()
+    val biaResult by biaManager.lastResult.collectAsState()
+    val biaTrigger by WatchState.biaTrigger.collectAsState()
+
+    LaunchedEffect(biaTrigger) {
+        if (biaTrigger > 0L) {
+            uiState = UiState.BIA_SCAN
+        }
+    }
 
     /**
      * Applies a BP-check interval picked on the watch: persists it, re-arms
@@ -304,11 +346,11 @@ private fun BpWatchApp(
     ) {
         val listState = rememberScalingLazyListState()
         Box(modifier = Modifier.fillMaxSize()) {
-            // Loading ring hugs the screen edge while measuring or sending —
+            // Loading ring hugs the screen edge while measuring or sending or scanning BIA —
             // never a little spinner floating in the middle.
-            if (uiState == UiState.MEASURING || uiState == UiState.SENDING) {
+            if (uiState == UiState.MEASURING || uiState == UiState.SENDING || (uiState == UiState.BIA_SCAN && biaScanState == Link.BiaScanState.SCANNING)) {
                 EdgeProgressRing(
-                    progress = if (uiState == UiState.MEASURING) progress else null,
+                    progress = if (uiState == UiState.MEASURING) progress else if (uiState == UiState.BIA_SCAN) biaProgress else null,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -435,6 +477,18 @@ private fun BpWatchApp(
                             label = { Text("Measure now", textAlign = TextAlign.Center) },
                             modifier = Modifier.fillMaxWidth(0.85f),
                             colors = ChipDefaults.primaryChipColors(),
+                        )
+                    }
+                    item {
+                        Chip(
+                            onClick = {
+                                biaManager.startScan()
+                                uiState = UiState.BIA_SCAN
+                            },
+                            label = { Text("Body fat (BIA)") },
+                            secondaryLabel = { Text("Dual side button sensors") },
+                            modifier = Modifier.fillMaxWidth(0.85f),
+                            colors = ChipDefaults.secondaryChipColors(),
                         )
                     }
                     item {
@@ -654,6 +708,175 @@ private fun BpWatchApp(
                         }
                     }
                 }
+
+                UiState.BIA_SCAN -> {
+                    item {
+                        Spacer(Modifier.height(18.dp))
+                        Text(
+                            text = "Body Fat · BIA",
+                            style = MaterialTheme.typography.title3,
+                            color = MaterialTheme.colors.onBackground,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    when (biaScanState) {
+                        Link.BiaScanState.WAITING_FOR_CONTACT -> {
+                            item {
+                                Text(
+                                    text = "Touch side buttons with middle & ring fingers to begin",
+                                    style = MaterialTheme.typography.caption1,
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colors.secondary,
+                                    modifier = Modifier.padding(horizontal = 14.dp),
+                                )
+                            }
+                            item {
+                                DualElectrodeSensorWidget(
+                                    isTopTouched = isTopTouched,
+                                    isBottomTouched = isBottomTouched,
+                                    onTopTouchChange = { biaManager.setElectrodeContact(it, isBottomTouched) },
+                                    onBottomTouchChange = { biaManager.setElectrodeContact(isTopTouched, it) },
+                                )
+                            }
+                            item {
+                                Chip(
+                                    onClick = {
+                                        biaManager.cancelScan()
+                                        uiState = UiState.IDLE
+                                    },
+                                    label = { Text("Cancel", textAlign = TextAlign.Center) },
+                                    modifier = Modifier.fillMaxWidth(0.85f),
+                                )
+                                Spacer(Modifier.height(20.dp))
+                            }
+                        }
+                        Link.BiaScanState.CONTACT_LOST -> {
+                            item {
+                                Text(
+                                    text = "⚠️ Contact lost! Touch sensors to resume scan",
+                                    style = MaterialTheme.typography.caption1,
+                                    textAlign = TextAlign.Center,
+                                    color = Color(0xFFFFB74D),
+                                    modifier = Modifier.padding(horizontal = 14.dp),
+                                )
+                            }
+                            item {
+                                DualElectrodeSensorWidget(
+                                    isTopTouched = isTopTouched,
+                                    isBottomTouched = isBottomTouched,
+                                    onTopTouchChange = { biaManager.setElectrodeContact(it, isBottomTouched) },
+                                    onBottomTouchChange = { biaManager.setElectrodeContact(isTopTouched, it) },
+                                )
+                            }
+                            item {
+                                Chip(
+                                    onClick = {
+                                        biaManager.cancelScan()
+                                        uiState = UiState.IDLE
+                                    },
+                                    label = { Text("Cancel", textAlign = TextAlign.Center) },
+                                    modifier = Modifier.fillMaxWidth(0.85f),
+                                )
+                                Spacer(Modifier.height(20.dp))
+                            }
+                        }
+                        Link.BiaScanState.SCANNING -> {
+                            item {
+                                val secRemaining = ((BiaSensorManager.TOTAL_SCAN_DURATION_MS * (1f - biaProgress)) / 1000f).roundToInt()
+                                val pct = (biaProgress * 100).toInt()
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "$pct%",
+                                        style = MaterialTheme.typography.display2,
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colors.primary,
+                                    )
+                                    Text(
+                                        text = "Measuring bioimpedance… ${secRemaining}s",
+                                        style = MaterialTheme.typography.caption2,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                    if (liveImpedance != null) {
+                                        Text(
+                                            text = "R: ${liveImpedance!!.toInt()} Ω",
+                                            style = MaterialTheme.typography.caption2,
+                                            color = MaterialTheme.colors.secondary,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(top = 2.dp),
+                                        )
+                                    }
+                                    Text(
+                                        text = "Keep fingers steady on both side buttons",
+                                        style = MaterialTheme.typography.caption2,
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colors.onBackground.copy(alpha = 0.7f),
+                                        modifier = Modifier.padding(top = 4.dp),
+                                    )
+                                }
+                            }
+                            item {
+                                DualElectrodeSensorWidget(
+                                    isTopTouched = isTopTouched,
+                                    isBottomTouched = isBottomTouched,
+                                    onTopTouchChange = { biaManager.setElectrodeContact(it, isBottomTouched) },
+                                    onBottomTouchChange = { biaManager.setElectrodeContact(isTopTouched, it) },
+                                )
+                            }
+                        }
+                        Link.BiaScanState.COMPLETED -> {
+                            val res = biaResult
+                            item {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = if (res != null) "%.1f%%".format(res.bodyFatPct) else "--%",
+                                        style = MaterialTheme.typography.display2,
+                                        textAlign = TextAlign.Center,
+                                        color = Color(0xFF6D4C41),
+                                    )
+                                    Text(
+                                        text = "Body Fat · Scan Complete ✓",
+                                        style = MaterialTheme.typography.caption1,
+                                        textAlign = TextAlign.Center,
+                                    )
+                                }
+                            }
+                            if (res != null) {
+                                item {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        Text("Skeletal Muscle: ${res.skeletalMuscleKg} kg", style = MaterialTheme.typography.caption2)
+                                        Text("Fat Mass: ${res.fatMassKg} kg", style = MaterialTheme.typography.caption2)
+                                        Text("Body Water: ${res.bodyWaterLiters} L", style = MaterialTheme.typography.caption2)
+                                        Text("BMR: ${res.bmrKcal} kcal", style = MaterialTheme.typography.caption2)
+                                    }
+                                }
+                            }
+                            item {
+                                Chip(
+                                    onClick = { uiState = UiState.IDLE },
+                                    label = { Text("Done", textAlign = TextAlign.Center) },
+                                    modifier = Modifier.fillMaxWidth(0.85f),
+                                    colors = ChipDefaults.primaryChipColors(),
+                                )
+                                Spacer(Modifier.height(20.dp))
+                            }
+                        }
+                        else -> {
+                            item {
+                                Chip(
+                                    onClick = {
+                                        biaManager.startScan()
+                                    },
+                                    label = { Text("Start BIA Scan", textAlign = TextAlign.Center) },
+                                    modifier = Modifier.fillMaxWidth(0.85f),
+                                    colors = ChipDefaults.primaryChipColors(),
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -746,3 +969,70 @@ fun BeatingHeart(beatScale: Float) {
         modifier = Modifier.graphicsLayer(scaleX = beatScale, scaleY = beatScale),
     )
 }
+
+/**
+ * Interactive & status widget for the two side button BIA electrodes.
+ * Green when finger contact is active; gray when finger is released.
+ * Touching either pad on screen also toggles contact state for testing.
+ */
+@Composable
+private fun DualElectrodeSensorWidget(
+    isTopTouched: Boolean,
+    isBottomTouched: Boolean,
+    onTopTouchChange: (Boolean) -> Unit,
+    onBottomTouchChange: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // Top electrode: Middle Finger
+        ElectrodeButtonRow(
+            title = "Top: Middle finger",
+            isContact = isTopTouched,
+            onClick = { onTopTouchChange(!isTopTouched) },
+        )
+
+        // Bottom electrode: Ring Finger
+        ElectrodeButtonRow(
+            title = "Bottom: Ring finger",
+            isContact = isBottomTouched,
+            onClick = { onBottomTouchChange(!isBottomTouched) },
+        )
+    }
+}
+
+@Composable
+private fun ElectrodeButtonRow(
+    title: String,
+    isContact: Boolean,
+    onClick: () -> Unit,
+) {
+    val activeColor = Color(0xFF4CAF50)
+    val inactiveColor = MaterialTheme.colors.surface
+    Chip(
+        onClick = onClick,
+        colors = ChipDefaults.chipColors(
+            backgroundColor = if (isContact) activeColor.copy(alpha = 0.25f) else inactiveColor,
+        ),
+        label = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.caption2,
+                color = if (isContact) activeColor else MaterialTheme.colors.onSurface.copy(alpha = 0.7f),
+            )
+        },
+        secondaryLabel = {
+            Text(
+                text = if (isContact) "● Contact detected" else "○ Touch electrode",
+                style = MaterialTheme.typography.caption2,
+                color = if (isContact) activeColor else MaterialTheme.colors.onSurface.copy(alpha = 0.5f),
+            )
+        },
+        modifier = Modifier.fillMaxWidth(0.9f),
+    )
+}
+

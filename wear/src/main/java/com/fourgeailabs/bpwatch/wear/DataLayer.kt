@@ -194,6 +194,50 @@ object DataLayer {
     }
 
     /**
+     * Watch → phone: live BIA scan state & electrode contact update.
+     */
+    suspend fun sendBiaState(
+        context: Context,
+        scanState: String,
+        isContactDetected: Boolean,
+        progress: Float,
+        elapsedMs: Long,
+        message: String = "",
+    ): Boolean {
+        val payload = DataMap().apply {
+            putString(Link.KEY_BIA_SCAN_STATE, scanState)
+            putBoolean(Link.KEY_BIA_CONTACT_DETECTED, isContactDetected)
+            putFloat(Link.KEY_BIA_PROGRESS, progress)
+            putLong(Link.KEY_BIA_ELAPSED_MS, elapsedMs)
+            putString(Link.KEY_BIA_MESSAGE, message)
+            putLong(Link.KEY_TIMESTAMP, System.currentTimeMillis())
+        }.toByteArray()
+        return sendToAllNodes(context, Link.PATH_BIA_STATE, payload)
+    }
+
+    /**
+     * Watch → phone: completed BIA body composition results.
+     */
+    suspend fun sendBiaResult(
+        context: Context,
+        bodyFatPct: Double,
+        skeletalMuscleKg: Double,
+        fatMassKg: Double,
+        bmrKcal: Int,
+        bodyWaterLiters: Double,
+    ): Boolean {
+        val payload = DataMap().apply {
+            putDouble(Link.KEY_BODY_FAT_PCT, bodyFatPct)
+            putDouble(Link.KEY_SKELETAL_MUSCLE_KG, skeletalMuscleKg)
+            putDouble(Link.KEY_FAT_MASS_KG, fatMassKg)
+            putInt(Link.KEY_BMR_KCAL, bmrKcal)
+            putDouble(Link.KEY_BODY_WATER_LITERS, bodyWaterLiters)
+            putLong(Link.KEY_TIMESTAMP, System.currentTimeMillis())
+        }.toByteArray()
+        return sendToAllNodes(context, Link.PATH_BIA_RESULT, payload)
+    }
+
+    /**
      * Watch → phone: "send me the full config + calibration state". Used on
      * boot and peer connect so a wiped/reinstalled watch re-programs itself
      * from the phone within seconds — never by hand.

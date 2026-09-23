@@ -72,16 +72,42 @@ class HealthConnectManager(private val context: Context) {
     ): List<T> {
         val out = mutableListOf<T>()
         var pageToken: String? = null
-        repeat(20) {
-            val req = ReadRecordsRequest(
-                recordType = T::class,
-                timeRangeFilter = filter,
-                pageToken = pageToken,
-            )
-            val resp = client.readRecords(req)
-            out += resp.records
-            pageToken = resp.pageToken
-            if (pageToken == null) return out
+        try {
+            repeat(20) {
+                val req = ReadRecordsRequest(
+                    recordType = T::class,
+                    timeRangeFilter = filter,
+                    pageToken = pageToken,
+                )
+                val resp = client.readRecords(req)
+                out += resp.records
+                pageToken = resp.pageToken
+                if (pageToken == null) return out
+            }
+        } catch (_: Exception) {
+            // Gracefully return records collected so far if a page times out or fails
+        }
+        if (out.isEmpty()) {
+            try {
+                // Direct read attempt without pageToken
+                val fallbackReq = ReadRecordsRequest(
+                    recordType = T::class,
+                    timeRangeFilter = filter,
+                )
+                out += client.readRecords(fallbackReq).records
+            } catch (_: Exception) {
+                try {
+                    // Fallback to recent 30-day window if >30-day history permission is restricted
+                    val safeStart = Instant.now().minus(30, ChronoUnit.DAYS)
+                    val safeFilter = TimeRangeFilter.between(safeStart, Instant.now())
+                    val safeReq = ReadRecordsRequest(
+                        recordType = T::class,
+                        timeRangeFilter = safeFilter,
+                    )
+                    out += client.readRecords(safeReq).records
+                } catch (_: Exception) {
+                }
+            }
         }
         return out
     }
@@ -176,6 +202,10 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getReadPermission(WeightRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getReadPermission(HydrationRecord::class),
+        HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+        HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
+        HealthPermission.getReadPermission(BodyFatRecord::class),
+        HealthPermission.getReadPermission(SkinTemperatureRecord::class),
     )
 
     fun permissionContract() = PermissionController.createRequestPermissionResultContract()
@@ -191,11 +221,11 @@ class HealthConnectManager(private val context: Context) {
     suspend fun hasReadPermissions(): Boolean =
         client.permissionController.getGrantedPermissions().containsAll(readPermissions)
 
-    /** True when every read the v2.0 dashboard needs has been granted. */
+    /** True when any read the v2.0 dashboard needs has been granted. */
     suspend fun hasDashboardReads(): Boolean =
         try {
-            client.permissionController.getGrantedPermissions()
-                .containsAll(dashboardReadPermissions)
+            val granted = client.permissionController.getGrantedPermissions()
+            dashboardReadPermissions.any { it in granted }
         } catch (e: CancellationException) {
             // (J) Never swallow coroutine cancellation: this feeds
             // MainViewModel.isHcTrendsAvailable, which the TrendsScreen load
@@ -258,38 +288,50 @@ class HealthConnectManager(private val context: Context) {
         val now = Instant.now()
         val dayFilter = TimeRangeFilter.between(startOfDay, now)
 
-        val agg = client.aggregate(
-            AggregateRequest(
-                metrics = setOf(
-                    StepsRecord.COUNT_TOTAL,
-                    DistanceRecord.DISTANCE_TOTAL,
-                    TotalCaloriesBurnedRecord.ENERGY_TOTAL,
-                    HydrationRecord.VOLUME_TOTAL,
-                ),
-                timeRangeFilter = dayFilter,
+        val agg = try {
+            client.aggregate(
+                AggregateRequest(
+                    metrics = setOf(
+                        StepsRecord.COUNT_TOTAL,
+                        DistanceRecord.DISTANCE_TOTAL,
+                        TotalCaloriesBurnedRecord.ENERGY_TOTAL,
+                        HydrationRecord.VOLUME_TOTAL,
+                    ),
+                    timeRangeFilter = dayFilter,
+                )
             )
-        )
+        } catch (_: Exception) {
+            null
+        }
 
-        val heartRateBpm = client.readRecords(
-            ReadRecordsRequest(
-                recordType = HeartRateRecord::class,
-                timeRangeFilter = dayFilter,
-            )
-        ).records
-            .flatMap { it.samples }
-            .maxByOrNull { it.time }
-            ?.beatsPerMinute
+        val heartRateBpm = try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = HeartRateRecord::class,
+                    timeRangeFilter = dayFilter,
+                )
+            ).records
+                .flatMap { it.samples }
+                .maxByOrNull { it.time }
+                ?.beatsPerMinute
+        } catch (_: Exception) {
+            null
+        }
 
-        val weightKg = client.readRecords(
-            ReadRecordsRequest(
-                recordType = WeightRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(
-                    now.minus(30, ChronoUnit.DAYS), now
-                ),
-            )
-        ).records
-            .maxByOrNull { it.time }
-            ?.weight?.let { HcUnitReaders.kilograms(it) }
+        val weightKg = try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = WeightRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(
+                        now.minus(30, ChronoUnit.DAYS), now
+                    ),
+                )
+            ).records
+                .maxByOrNull { it.time }
+                ?.weight?.let { HcUnitReaders.kilograms(it) }
+        } catch (_: Exception) {
+            null
+        }
 
         // Last night's sleep: sessions ending in the last 36 hours, grouped by
         // wake date (each record's own endZoneOffset, so night attribution
@@ -298,13 +340,17 @@ class HealthConnectManager(private val context: Context) {
         // merge a nap or an early night into the total.
         // v2.3 sleep audit: counts actual sleep (stages), not time in bed.
         val sleepCutoff = now.minus(36, ChronoUnit.HOURS)
-        val sleepSessions = client.readRecords(
-            ReadRecordsRequest(
-                recordType = SleepSessionRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(sleepCutoff, now),
-            )
-        ).records
-            .filter { it.endTime.isAfter(sleepCutoff) }
+        val sleepSessions = try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(sleepCutoff, now),
+                )
+            ).records
+                .filter { it.endTime.isAfter(sleepCutoff) }
+        } catch (_: Exception) {
+            emptyList()
+        }
         val lastNightSleepMinutes = sleepSessions
             .groupBy { wakeDate(it) }
             .maxByOrNull { (date, _) -> date }
@@ -361,13 +407,13 @@ class HealthConnectManager(private val context: Context) {
         }
 
         TodayMetrics(
-            steps = agg.get(StepsRecord.COUNT_TOTAL),
-            distanceMeters = agg.get(DistanceRecord.DISTANCE_TOTAL)?.let { HcUnitReaders.meters(it) },
-            caloriesKcal = agg.get(TotalCaloriesBurnedRecord.ENERGY_TOTAL)?.let { HcUnitReaders.kilocalories(it) },
+            steps = agg?.get(StepsRecord.COUNT_TOTAL),
+            distanceMeters = agg?.get(DistanceRecord.DISTANCE_TOTAL)?.let { HcUnitReaders.meters(it) },
+            caloriesKcal = agg?.get(TotalCaloriesBurnedRecord.ENERGY_TOTAL)?.let { HcUnitReaders.kilocalories(it) },
             heartRateBpm = heartRateBpm,
             weightKg = weightKg,
             sleepHours = (lastNightSleepMinutes / 60.0).takeIf { lastNightSleepMinutes > 0 },
-            hydrationLiters = agg.get(HydrationRecord.VOLUME_TOTAL)?.let { HcUnitReaders.liters(it) },
+            hydrationLiters = agg?.get(HydrationRecord.VOLUME_TOTAL)?.let { HcUnitReaders.liters(it) },
             bodyFatPct = bodyFatPct,
             hrvRmssd = hrvRmssd,
             restingHr = restingHr,
@@ -430,19 +476,17 @@ class HealthConnectManager(private val context: Context) {
                     .sortedBy { it.timestamp }
             }
             HcTrendMetric.SLEEP -> {
-                // v2.4.6: paginated full-history read for backfill.
-                val records = readAllRecords<SleepSessionRecord>(filter)
+                // v2.4.6: paginated full-history read for backfill with boundary margin.
+                val nowInstant = Instant.now()
+                val safeEnd = if (end.isAfter(nowInstant)) nowInstant else end
+                val sleepFilter = TimeRangeFilter.between(start.minus(1, ChronoUnit.DAYS), safeEnd)
+                val records = readAllRecords<SleepSessionRecord>(sleepFilter)
+                    .filter { it.endTime.isAfter(start.minus(12, ChronoUnit.HOURS)) && !it.startTime.isAfter(safeEnd) }
                 // v2.3 sleep audit: each session counts toward the local
                 // calendar day its end falls on (the morning you woke up).
-                // Range-aligned 24h buckets could split one morning's
-                // sessions across two days and mislabel the x-axis, so daily
-                // buckets are midnight-aligned instead. Hourly buckets keep
-                // the range-aligned slicer.
                 val zone = ZoneId.systemDefault()
                 records.groupBy { session ->
                     if (bucketHours >= 24) {
-                        // Attribute by wake date using the record's own
-                        // end-zone offset (stable across timezone changes).
                         wakeDate(session).atStartOfDay(zone).toInstant()
                     } else {
                         bucketStart(session.endTime, start, slicer)
@@ -452,6 +496,7 @@ class HealthConnectManager(private val context: Context) {
                         val hours = rs.sumOf { sleepMinutes(it) } / 60f
                         HcTrendPoint(bucket.toEpochMilli(), hours)
                     }
+                    .filter { it.value > 0f }
                     .sortedBy { it.timestamp }
             }
             // v2.2: latest reading per bucket (same shape as WEIGHT).
@@ -555,15 +600,16 @@ class HealthConnectManager(private val context: Context) {
         session.endTime.atZone(session.endZoneOffset ?: ZoneId.systemDefault()).toLocalDate()
 
     private fun sleepMinutes(session: SleepSessionRecord): Long {
+        val totalDuration = Duration.between(session.startTime, session.endTime).toMinutes().coerceAtLeast(0L)
         val stages = session.stages
         if (stages.isEmpty()) {
-            return Duration.between(session.startTime, session.endTime).toMinutes()
-                .coerceAtLeast(0L)
+            return totalDuration
         }
-        return stages
+        val stageMinutes = stages
             .filter { it.stage in SLEEP_STAGE_TYPES }
             .sumOf { Duration.between(it.startTime, it.endTime).toMinutes() }
             .coerceAtLeast(0L)
+        return if (stageMinutes > 0L) stageMinutes else totalDuration
     }
 
     /**
@@ -679,8 +725,10 @@ class HealthConnectManager(private val context: Context) {
     suspend fun getSleepWeek(endWakeDate: LocalDate): List<SleepNightSummary> =
         withTimeoutOrNull(HC_QUERY_TIMEOUT_MS) {
             val now = Instant.now()
+            // Bounded window: 30 days before requested endWakeDate up to now
+            val rangeStart = endWakeDate.minusDays(30).atStartOfDay(ZoneId.systemDefault()).toInstant()
             val sessions = readAllRecords<SleepSessionRecord>(
-                TimeRangeFilter.between(HISTORY_EPOCH, now),
+                TimeRangeFilter.between(rangeStart, now),
             )
             val byWakeDate = sessions.groupBy { wakeDate(it) }
             (0..6).map { back ->
@@ -780,11 +828,11 @@ class HealthConnectManager(private val context: Context) {
         val now = Instant.now()
         return try {
             withTimeoutOrNull(HC_QUERY_TIMEOUT_MS) {
-                // Find the session ending on the requested wake date.
-                // v2.4.6: search from the beginning of the record so any
-                // browsable date resolves, not just the last fortnight.
+                // Focused window around the requested wakeDate (+/- 2 days)
+                val searchStart = wakeDate.minusDays(2).atStartOfDay(ZoneId.systemDefault()).toInstant()
+                val searchEnd = wakeDate.plusDays(1).atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant()
                 val sessions = readAllRecords<SleepSessionRecord>(
-                    TimeRangeFilter.between(HISTORY_EPOCH, now),
+                    TimeRangeFilter.between(searchStart, searchEnd),
                 ).filter { wakeDate(it) == wakeDate }
                 val session = sessions.maxByOrNull { it.endTime } ?: return@withTimeoutOrNull null
 

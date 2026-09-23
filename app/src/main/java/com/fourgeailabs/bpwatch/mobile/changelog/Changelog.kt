@@ -20,6 +20,18 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.07.04",
+        versionCode = 46,
+        date = "2026-09-23",
+        notes = listOf(
+            "Refactored Trends menu: replaced horizontal metric chip slider with full interactive cards that click into each individual trend",
+            "Displayed the most current data point, unit, and status directly on each trend card in the Trends overview",
+            "Added robust dual data reporting for Body Fat, Resting HR, HRV, and Skin Temperature combining local watch telemetry, BIA scans, and Health Connect series",
+            "Hardened historical sleep data polling with safe time boundaries and fallback queries for Health Connect",
+            "Consolidated Home Screen health layout into clean Material 3 metric grid, removing redundant standalone cards",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.03",
         versionCode = 45,
         date = "2026-09-23",

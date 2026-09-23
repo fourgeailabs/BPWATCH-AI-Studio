@@ -4,6 +4,7 @@ import com.fourgeailabs.bpwatch.Link
 import com.fourgeailabs.bpwatch.mobile.BpRepository
 import com.fourgeailabs.bpwatch.mobile.calibration.CalibrationEngine
 import com.fourgeailabs.bpwatch.mobile.data.Reading
+import com.fourgeailabs.bpwatch.mobile.data.HealthLog
 import com.fourgeailabs.bpwatch.mobile.data.AppDatabase
 import com.fourgeailabs.bpwatch.mobile.data.WatchSteps
 import com.fourgeailabs.bpwatch.mobile.healthconnect.HealthConnectManager
@@ -51,6 +52,8 @@ class PhoneListenerService : WearableListenerService() {
             Link.PATH_BATTERY_STATE -> handleBatteryState(event)
             Link.PATH_BODY_FAT_SYNC -> handleBodyFatSync(event)
             Link.PATH_SENSOR_TELEMETRY -> handleSensorTelemetry(event)
+            Link.PATH_BIA_STATE -> handleBiaState(event)
+            Link.PATH_BIA_RESULT -> handleBiaResult(event)
         }
     }
 
@@ -319,17 +322,36 @@ class PhoneListenerService : WearableListenerService() {
                 val ts = if (map.containsKey(Link.KEY_TIMESTAMP)) map.getLong(Link.KEY_TIMESTAMP) else System.currentTimeMillis()
                 val hc = HealthConnectManager(applicationContext)
                 val hasHc = hc.isAvailable && hc.hasPermissions()
+                val repo = BpRepository.get(applicationContext)
 
                 if (map.containsKey(Link.KEY_RESTING_HR)) {
                     val rHr = map.getFloat(Link.KEY_RESTING_HR)
-                    if (rHr > 0f && hasHc) {
-                        hc.writeRestingHeartRate(rHr.toLong(), Instant.ofEpochMilli(ts))
+                    if (rHr > 0f) {
+                        repo.addHealthLog(
+                            HealthLog(
+                                timestamp = ts,
+                                kind = "resting_hr",
+                                value = rHr.toDouble(),
+                                label = "Resting HR: ${rHr.toInt()} bpm",
+                            )
+                        )
+                        if (hasHc) {
+                            hc.writeRestingHeartRate(rHr.toLong(), Instant.ofEpochMilli(ts))
+                        }
                     }
                 }
                 if (map.containsKey(Link.KEY_HRV_RMSSD)) {
                     val hrv = map.getFloat(Link.KEY_HRV_RMSSD)
                     if (hrv > 0f) {
                         WatchLiveState.updateLiveHrv(hrv)
+                        repo.addHealthLog(
+                            HealthLog(
+                                timestamp = ts,
+                                kind = "hrv",
+                                value = hrv.toDouble(),
+                                label = "HRV: ${hrv.toInt()} ms",
+                            )
+                        )
                         if (hasHc) {
                             hc.writeHeartRateVariability(hrv.toDouble(), Instant.ofEpochMilli(ts))
                         }
@@ -696,6 +718,59 @@ class PhoneListenerService : WearableListenerService() {
                 pushFullSync(event.sourceNodeId)
             } catch (_: Exception) {
             }
+        }
+    }
+
+    private fun handleBiaState(event: MessageEvent) {
+        try {
+            val map = DataMap.fromByteArray(event.data)
+            val state = map.getString(Link.KEY_BIA_SCAN_STATE).orEmpty()
+            val isContact = map.getBoolean(Link.KEY_BIA_CONTACT_DETECTED, false)
+            val prog = map.getFloat(Link.KEY_BIA_PROGRESS, 0f)
+            val elapsed = map.getLong(Link.KEY_BIA_ELAPSED_MS, 0L)
+            val msg = map.getString(Link.KEY_BIA_MESSAGE).orEmpty()
+            BiaState.onStateReceived(state, isContact, prog, elapsed, msg)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun handleBiaResult(event: MessageEvent) {
+        try {
+            val map = DataMap.fromByteArray(event.data)
+            val bodyFat = map.getDouble(Link.KEY_BODY_FAT_PCT)
+            val muscle = map.getDouble(Link.KEY_SKELETAL_MUSCLE_KG)
+            val fatMass = map.getDouble(Link.KEY_FAT_MASS_KG)
+            val bmr = map.getInt(Link.KEY_BMR_KCAL)
+            val water = map.getDouble(Link.KEY_BODY_WATER_LITERS)
+            val result = BiaState.BiaResult(
+                bodyFatPct = bodyFat,
+                skeletalMuscleKg = muscle,
+                fatMassKg = fatMass,
+                bmrKcal = bmr,
+                bodyWaterLiters = water,
+            )
+            BiaState.onResultReceived(result)
+
+            // Persist to Room HealthLog and Health Connect
+            scope.launch {
+                try {
+                    val repo = BpRepository.get(applicationContext)
+                    repo.addHealthLog(
+                        HealthLog(
+                            timestamp = System.currentTimeMillis(),
+                            kind = "body_fat",
+                            value = bodyFat,
+                            label = "Body Fat: ${String.format(java.util.Locale.US, "%.1f", bodyFat)}%",
+                        )
+                    )
+                    val hc = HealthConnectManager(applicationContext)
+                    if (hc.isAvailable) {
+                        hc.writeBodyFat(bodyFat, Instant.now())
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        } catch (_: Exception) {
         }
     }
 }

@@ -46,6 +46,13 @@ object WatchState {
     private val _batterySaverActive = MutableStateFlow(false)
     val batterySaverActive: StateFlow<Boolean> = _batterySaverActive
 
+    private val _biaTrigger = MutableStateFlow(0L)
+    val biaTrigger: StateFlow<Long> = _biaTrigger
+
+    fun triggerBia() {
+        _biaTrigger.value = System.currentTimeMillis()
+    }
+
     fun onEstimate(sys: Int, dia: Int, timestamp: Long) {
         _lastEstimate.value = BpEstimate(sys, dia, timestamp)
     }
