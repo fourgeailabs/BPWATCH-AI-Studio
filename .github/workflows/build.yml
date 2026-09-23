@@ -7,6 +7,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,16 +24,23 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install required SDK packages
         run: |
-          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
-          yes | sdkmanager --licenses > /dev/null
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-35" "build-tools;34.0.0" "platform-tools"
 
       - name: Build phone and watch APKs
         run: |
           chmod +x gradlew || true
-          ./gradlew :app:assembleDebug :wear:assembleDebug --stacktrace
+          gradle :app:assembleDebug :wear:assembleDebug --stacktrace
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
