@@ -20,6 +20,17 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.08.00",
+        versionCode = 40,
+        date = "2026-09-22",
+        notes = listOf(
+            "Updated GitHub Actions CI/CD to use Gradle 9.3.1 compatible with AGP 9.1.1",
+            "Switched GitHub workflow to runner's native Android SDK environment for reliable artifact builds",
+            "Enabled automatic SDK component downloads in gradle.properties",
+            "Maintained signature and package stability across phone and Wear OS modules",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.00",
         versionCode = 39,
         date = "2026-09-22",

@@ -18,7 +18,13 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.07.00 (Current)
+### v2.08.00 (Current)
+- **GitHub Actions CI/CD Compatibility**: Upgraded GitHub Actions Gradle workflow runner to Gradle 9.3.1 to ensure 100% compatibility with Android Gradle Plugin (AGP) 9.1.1.
+- **Native Android SDK Environment**: Configured CI build runner to use GitHub's native pre-installed Android SDK toolchain and automated platform licensing, eliminating third-party action failures.
+- **Automated SDK Component Downloads**: Configured `android.builder.sdkDownload=true` in `gradle.properties` for seamless platform/build-tools resolution.
+- **Package and Key Consistency**: Guaranteed fixed `applicationId` (`com.fourgeailabs.bpwatch`) and deterministic debug keystore signing for continuous APK upgrades.
+
+### v2.07.00
 - **Automatic Battery-Saving Mode (< 20% Watch Battery)**: Implemented an intelligent power-saving mode on the Wear OS watch that automatically triggers when watch battery capacity falls below 20%.
 - **Dynamic Sensor Polling Reduction**: Reduces high-frequency accelerometer sensor listening from `SENSOR_DELAY_UI` (60ms) to `SENSOR_DELAY_NORMAL` (200ms) and step sensor from `FASTEST` to `NORMAL`.
 - **Extended Background Check Intervals**: Relaxes scheduled blood pressure check intervals to a minimum of 60 minutes (preserving daily morning checks) and relaxes periodic continuous heart rate recording from 10 minutes to 30 minutes.
