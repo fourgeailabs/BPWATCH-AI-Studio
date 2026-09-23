@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.type.watch" />
+
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <!-- Step counts (v2.2): TYPE_STEP_COUNTER needs this on API 29+. -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Exact alarms (v2.3): chained setExactAndAllowWhileIdle drives the
+         BP-check and recording schedules reliably under Doze. Granted by
+         default on API 33+; revocable in Settings → Alarms & reminders —
+         the schedulers fall back to inexact when it's missing. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- Monitoring & alerts (v1.13): alert notifications, alert vibration,
+         and the continuous heart-rate foreground service. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+
+    <!-- Self-update (v2.4.0): the watch installs its own updates through
+         PackageInstaller. Declaring this makes BPWatch appear in the watch's
+         Settings → Apps → Special app access → Install unknown apps list so
+         the user can allow it — without this the one-tap updater is blocked
+         on devices that gate sideloaded self-updates behind it. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application
+        android:label="BPWatch"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@android:style/Theme.DeviceDefault">
+        <activity
+            android:name="com.fourgeailabs.bpwatch.wear.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service android:name="com.fourgeailabs.bpwatch.wear.WatchListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/bpwatch" />
+            </intent-filter>
+            <!-- One-tap updater (v1.15+): the APK arrives as a DataItem. -->
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/bpwatch" />
+            </intent-filter>
+        </service>
+
+        <!-- Result of a self-update install session (v1.15+). -->
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.wear.UpdateResultReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.fourgeailabs.bpwatch.wear.UPDATE_RESULT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Continuous heart-rate monitoring: foreground service, health type
+             (API 34+ requires the type declared here plus the
+             FOREGROUND_SERVICE_HEALTH permission). -->
+        <service
+            android:name="com.fourgeailabs.bpwatch.wear.HrMonitorService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
+
+        <!-- Full-screen threshold alert, launched from the alert notification. -->
+        <activity
+            android:name="com.fourgeailabs.bpwatch.wear.AlertActivity"
+            android:exported="false"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true" />
+
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.wear.HourlyCheckReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.fourgeailabs.bpwatch.wear.HOURLY_CHECK" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.wear.RecordSampleReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.fourgeailabs.bpwatch.wear.RECORD_SAMPLE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.wear.StepsReportReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.fourgeailabs.bpwatch.wear.REPORT_STEPS" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.wear.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Battery-saving mode (v2.7.0): dynamically throttles sensor polling when battery < 20%. -->
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.wear.BatteryStateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BATTERY_LOW" />
+                <action android:name="android.intent.action.BATTERY_OKAY" />
+                <action android:name="android.os.action.POWER_SAVE_MODE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="true" />
+
+        <!-- Watch-face complications (v2.3): latest BP, heart rate, stress.
+             Each is SHORT_TEXT only, refreshed when new data lands. -->
+        <service
+            android:name="com.fourgeailabs.bpwatch.wear.BpComplicationService"
+            android:label="@string/complication_bp_label"
+            android:icon="@mipmap/ic_launcher"
+            android:exported="true"
+            android:permission="android.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.watchface.complications.datasource.action.COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.watchface.complications.datasource.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT" />
+        </service>
+
+        <service
+            android:name="com.fourgeailabs.bpwatch.wear.HrComplicationService"
+            android:label="@string/complication_hr_label"
+            android:icon="@mipmap/ic_launcher"
+            android:exported="true"
+            android:permission="android.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.watchface.complications.datasource.action.COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.watchface.complications.datasource.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT" />
+        </service>
+
+        <service
+            android:name="com.fourgeailabs.bpwatch.wear.StressComplicationService"
+            android:label="@string/complication_stress_label"
+            android:icon="@mipmap/ic_launcher"
+            android:exported="true"
+            android:permission="android.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.watchface.complications.datasource.action.COMPLICATION_UPDATE_REQUEST" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.watchface.complications.datasource.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT" />
+        </service>
+
+        <!-- Wear OS Tile (v2.4.2): the swipeable "latest BP + time" card. -->
+        <service
+            android:name="com.fourgeailabs.bpwatch.wear.BpTileService"
+            android:label="@string/tile_bp_label"
+            android:description="@string/tile_bp_description"
+            android:icon="@mipmap/ic_launcher"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_preview_bp" />
+        </service>
+    </application>
+</manifest>

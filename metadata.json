@@ -1,0 +1,6 @@
+{
+  "name": "BPWatch",
+  "description": "Blood pressure monitoring with posture and wrist sensor integration, syncing accurately to Samsung Health.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

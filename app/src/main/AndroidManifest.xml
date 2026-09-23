@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Health Connect: read/write blood pressure,
+         plus the v2.0 dashboard reads and "+ Log" writes. -->
+    <uses-permission android:name="android.permission.health.READ_BLOOD_PRESSURE" />
+    <uses-permission android:name="android.permission.health.WRITE_BLOOD_PRESSURE" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_HYDRATION" />
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
+    <uses-permission android:name="android.permission.health.WRITE_HYDRATION" />
+    <uses-permission android:name="android.permission.health.WRITE_NUTRITION" />
+
+    <!-- v2.2 full-coverage reads: everything Health Connect offers that maps
+         to real fitness data (no ECG type exists in Health Connect; Samsung's
+         ECG stays behind its partner-only SDK). -->
+    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
+    <uses-permission android:name="android.permission.health.READ_RESPIRATORY_RATE" />
+    <uses-permission android:name="android.permission.health.READ_VO2_MAX" />
+    <uses-permission android:name="android.permission.health.READ_BODY_FAT" />
+    <uses-permission android:name="android.permission.health.READ_BASAL_METABOLIC_RATE" />
+    <uses-permission android:name="android.permission.health.READ_FLOORS_CLIMBED" />
+    <uses-permission android:name="android.permission.health.READ_LEAN_BODY_MASS" />
+
+    <!-- Watch installer: ADB-over-Wi-Fi socket to the watch -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Result notifications when a new BP estimate is ready -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- v2.4.2: keep the phone screen awake while a BP check is measuring -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Extreme watch alerts take over the screen with a full-screen intent -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- v2.3 snore detection: overnight microphone foreground service.
+         RECORD_AUDIO is runtime-requested from the Settings toggle.
+         The microphone <uses-feature> is required="false" so phones without
+         one aren't filtered out of the Play listing — the feature degrades
+         gracefully via SnoreService.canRun instead. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
+    <!-- Health Connect: package visibility is required on Android 11+ for the
+         permission request to resolve. Without this the Connect button fails
+         silently and the app never appears in Health Connect's app list. -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
+    <application
+        android:label="BPWatch"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/Theme.BpWatch">
+        <activity
+            android:name="com.fourgeailabs.bpwatch.mobile.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Health Connect (Android 13 and below): rationale entry point so
+                 the HC app can deep-link into us for "why does this app want
+                 this data?". Without it HC ignores the app. -->
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Health Connect (Android 14+): permission-rationale entry point.
+             The system will NOT present the permission request at all if this
+             alias is missing — the request silently returns 0 granted and the
+             app never appears in Health Connect's app list. Health Connect
+             opens our MainActivity with the rationale intent; the user can
+             read why we need the data in Settings. -->
+        <activity-alias
+            android:name="com.fourgeailabs.bpwatch.mobile.ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity="com.fourgeailabs.bpwatch.mobile.MainActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Full-screen takeover for extreme watch alerts. Fires over the
+             lock screen; dismissed only with a swipe. -->
+        <activity
+            android:name="com.fourgeailabs.bpwatch.mobile.ui.PhoneAlertActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop" />
+
+        <!-- Receives heart-rate readings from the watch -->
+        <service
+            android:name="com.fourgeailabs.bpwatch.mobile.wearable.PhoneListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/bpwatch" />
+            </intent-filter>
+        </service>
+
+        <!-- v2.3 snore detection: overnight microphone foreground service.
+             The 22:00 alarm attempts the start (it succeeds when the app is
+             open or on pre-14 OS versions; Android 14+ blocks background
+             microphone starts, so opening the app during the window or the
+             Settings "Start listening now" button starts it instead). -->
+        <service
+            android:name="com.fourgeailabs.bpwatch.mobile.snore.SnoreService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.mobile.snore.SnoreAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.fourgeailabs.bpwatch.mobile.SNORE_START" />
+                <action android:name="com.fourgeailabs.bpwatch.mobile.SNORE_STOP" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.mobile.snore.SnoreBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
