@@ -22,7 +22,9 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.filled.Warning
@@ -83,6 +85,7 @@ fun SettingsScreen(
     onOpenCalibration: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenChangelog: () -> Unit,
+    onOpenReminders: () -> Unit = {},
 ) {
     // v2.4.0: Settings is a hub — every section is a clickable card that
     // opens that section's own screen (back button returns here).
@@ -91,7 +94,8 @@ fun SettingsScreen(
         Quad(Icons.Filled.Person, "Body profile", "Height, weight, age, sex and BMI", onOpenProfile),
         Quad(Icons.Filled.Favorite, "Connections", "Samsung Health and Health Connect", onOpenConnections),
         Quad(Icons.Filled.MonitorHeart, "Monitoring & alerts", "Check schedule, thresholds, alerts", onOpenMonitoring),
-        Quad(Icons.Filled.Bedtime, "Sleep", "Snore detection and sleep data", onOpenSleep),
+        Quad(Icons.Filled.Bedtime, "Sleep", "Snore detection, sleep times and diagnostics", onOpenSleep),
+        Quad(Icons.Filled.Notifications, "Reminders", "Daily and custom-day weight check alerts", onOpenReminders),
         Quad(Icons.Filled.Tune, "Calibration", "Cuff readings and model status", onOpenCalibration),
         Quad(Icons.Filled.Info, "About", "Version, credits and links", onOpenAbout),
         Quad(Icons.Filled.NewReleases, "What's new", "Release history, newest first", onOpenChangelog),
@@ -801,11 +805,21 @@ fun SnoreCard(
     onStartNow: () -> Unit,
     onRequestMicPermission: () -> Unit,
     isMicGranted: () -> Boolean,
+    sleepStartHour: Int = 22,
+    sleepStartMinute: Int = 0,
+    sleepEndHour: Int = 7,
+    sleepEndMinute: Int = 0,
+    onUpdateSleepSchedule: (startH: Int, startM: Int, endH: Int, endM: Int) -> Unit = { _, _, _, _ -> },
 ) {
+    var startH by remember(sleepStartHour) { mutableStateOf(sleepStartHour) }
+    var startM by remember(sleepStartMinute) { mutableStateOf(sleepStartMinute) }
+    var endH by remember(sleepEndHour) { mutableStateOf(sleepEndHour) }
+    var endM by remember(sleepEndMinute) { mutableStateOf(sleepEndMinute) }
+
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -816,9 +830,11 @@ fun SnoreCard(
                     Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text("Snore detection", style = MaterialTheme.typography.titleMedium)
+                    Text("Snore detection & sleep window", style = MaterialTheme.typography.titleMedium)
+                    val sFormatted = "%02d:%02d".format(startH, startM)
+                    val eFormatted = "%02d:%02d".format(endH, endM)
                     Text(
-                        "Listens with the microphone from 22:00 to 07:00. " +
+                        "Listens with the microphone during sleep window ($sFormatted to $eFormatted). " +
                             "Uses extra battery overnight.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -835,6 +851,51 @@ fun SnoreCard(
                     },
                 )
             }
+
+            Text(
+                "Adjust sleep tracking times to let the phone know when to monitor sleep and start listening for snoring:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                OutlinedTextField(
+                    value = "%02d:%02d".format(startH, startM),
+                    onValueChange = { input ->
+                        val parts = input.split(":")
+                        if (parts.size == 2) {
+                            val h = parts[0].toIntOrNull()?.coerceIn(0, 23) ?: startH
+                            val m = parts[1].toIntOrNull()?.coerceIn(0, 59) ?: startM
+                            startH = h
+                            startM = m
+                            onUpdateSleepSchedule(startH, startM, endH, endM)
+                        }
+                    },
+                    label = { Text("Bedtime (start)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = "%02d:%02d".format(endH, endM),
+                    onValueChange = { input ->
+                        val parts = input.split(":")
+                        if (parts.size == 2) {
+                            val h = parts[0].toIntOrNull()?.coerceIn(0, 23) ?: endH
+                            val m = parts[1].toIntOrNull()?.coerceIn(0, 59) ?: endM
+                            endH = h
+                            endM = m
+                            onUpdateSleepSchedule(startH, startM, endH, endM)
+                        }
+                    },
+                    label = { Text("Wakeup (end)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+            }
+
             if (enabled && !listening) {
                 // Manual start only makes sense inside the overnight window;
                 // outside it the status line already says when listening begins.
@@ -857,6 +918,120 @@ fun SnoreCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+/**
+ * Weight check and health routine reminders card.
+ */
+@Composable
+fun RemindersCard(
+    enabled: Boolean,
+    hour: Int,
+    minute: Int,
+    daysCsv: String,
+    onSave: (enabled: Boolean, hour: Int, minute: Int, daysCsv: String) -> Unit,
+) {
+    var isEnabled by remember(enabled) { mutableStateOf(enabled) }
+    var currentHour by remember(hour) { mutableStateOf(hour) }
+    var currentMinute by remember(minute) { mutableStateOf(minute) }
+    var selectedDays by remember(daysCsv) {
+        mutableStateOf(daysCsv.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet())
+    }
+
+    val dayLabels = listOf(
+        1 to "Mon", 2 to "Tue", 3 to "Wed",
+        4 to "Thu", 5 to "Fri", 6 to "Sat", 7 to "Sun"
+    )
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                TintedIcon(icon = Icons.Filled.Notifications, contentDescription = null)
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text("Weight Check Reminders", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Receive daily or selected-day reminders to measure and record your weight.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = isEnabled,
+                    onCheckedChange = {
+                        isEnabled = it
+                        val csv = selectedDays.sorted().joinToString(",")
+                        onSave(isEnabled, currentHour, currentMinute, csv)
+                    },
+                )
+            }
+
+            if (isEnabled) {
+                Text(
+                    "Reminder Time:",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                OutlinedTextField(
+                    value = "%02d:%02d".format(currentHour, currentMinute),
+                    onValueChange = { input ->
+                        val parts = input.split(":")
+                        if (parts.size == 2) {
+                            val h = parts[0].toIntOrNull()?.coerceIn(0, 23) ?: currentHour
+                            val m = parts[1].toIntOrNull()?.coerceIn(0, 59) ?: currentMinute
+                            currentHour = h
+                            currentMinute = m
+                            val csv = selectedDays.sorted().joinToString(",")
+                            onSave(isEnabled, currentHour, currentMinute, csv)
+                        }
+                    },
+                    label = { Text("Time (HH:MM 24h)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+
+                Text(
+                    "Repeat on Days:",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    dayLabels.forEach { (dayIndex, dayName) ->
+                        val isSelected = selectedDays.contains(dayIndex)
+                        OutlinedButton(
+                            onClick = {
+                                val nextSet = if (isSelected) {
+                                    if (selectedDays.size > 1) selectedDays - dayIndex else selectedDays
+                                } else {
+                                    selectedDays + dayIndex
+                                }
+                                selectedDays = nextSet
+                                val csv = nextSet.sorted().joinToString(",")
+                                onSave(isEnabled, currentHour, currentMinute, csv)
+                            },
+                            colors = if (isSelected) androidx.compose.material3.ButtonDefaults.buttonColors()
+                            else androidx.compose.material3.ButtonDefaults.outlinedButtonColors(),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                            modifier = Modifier.padding(horizontal = 2.dp),
+                        ) {
+                            Text(dayName, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
         }
     }
 }

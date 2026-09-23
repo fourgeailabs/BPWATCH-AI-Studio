@@ -71,6 +71,7 @@ import com.fourgeailabs.bpwatch.mobile.ui.ConnectionsSettingsScreen
 import com.fourgeailabs.bpwatch.mobile.ui.HistoryScreen
 import com.fourgeailabs.bpwatch.mobile.ui.HomeScreen
 import com.fourgeailabs.bpwatch.mobile.ui.MonitoringSettingsScreen
+import com.fourgeailabs.bpwatch.mobile.ui.RemindersSettingsScreen
 import com.fourgeailabs.bpwatch.mobile.ui.SettingsScreen
 import com.fourgeailabs.bpwatch.mobile.ui.SleepSettingsScreen
 import com.fourgeailabs.bpwatch.mobile.ui.SleepDetailScreen
@@ -367,7 +368,7 @@ private fun BpWatchPhoneApp(
             // v2.4.0: 0..3 = bottom tabs; 4..12 = detail screens with back.
             // 4 Calibrate, 5 Snoring, 6 About, 7 What's new, 8 Watch app,
             // 9 Body profile, 10 Connections, 11 Monitoring & alerts, 12 Sleep.
-            if (selected in 4..12) {
+            if (selected in 4..12 || selected == 16) {
                 MediumTopAppBar(
                     title = {
                         Text(
@@ -380,7 +381,9 @@ private fun BpWatchPhoneApp(
                                 9 -> "Body profile"
                                 10 -> "Connections"
                                 11 -> "Monitoring & alerts"
-                                else -> "Sleep"
+                                12 -> "Sleep"
+                                16 -> "Reminders"
+                                else -> "Settings"
                             }
                         )
                     },
@@ -391,7 +394,7 @@ private fun BpWatchPhoneApp(
                         // v2.4.0: settings details fall back to the hub (3).
                         IconButton(onClick = {
                             if (!goBack()) selected =
-                                if (selected in 6..12) 3 else 0
+                                if (selected in 6..12 || selected == 16) 3 else 0
                         }) {
                             Icon(
                                 Icons.Filled.ArrowBack,
@@ -452,6 +455,7 @@ private fun BpWatchPhoneApp(
                         onOpenCalibration = { goTo(4) },
                         onOpenAbout = { goTo(6) },
                         onOpenChangelog = { goTo(7) },
+                        onOpenReminders = { goTo(16) },
                     )
                 }
                 4 -> CalibrateScreen(viewModel)
@@ -504,6 +508,8 @@ private fun BpWatchPhoneApp(
                     viewModel,
                     onBack = { goTo(14) },
                 )
+                // v2.7.0: reminders settings.
+                16 -> RemindersSettingsScreen(viewModel)
             }
         }
     }

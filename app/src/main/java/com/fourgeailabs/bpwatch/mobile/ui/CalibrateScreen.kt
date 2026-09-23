@@ -172,6 +172,15 @@ fun CalibrateScreen(viewModel: MainViewModel) {
 
         itemsIndexed(points) { index, p ->
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                val formattedTime = remember(p.timestamp) {
+                    if (p.timestamp > 0L) {
+                        val instant = java.time.Instant.ofEpochMilli(p.timestamp)
+                        val dt = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault())
+                        dt.format(java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy · h:mm a"))
+                    } else {
+                        "Initial calibration"
+                    }
+                }
                 ListItem(
                     headlineContent = {
                         Text(
@@ -180,10 +189,17 @@ fun CalibrateScreen(viewModel: MainViewModel) {
                         )
                     },
                     supportingContent = {
-                        Text(
-                            "@ ${p.heartRate.toInt()} bpm",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                        Column {
+                            Text(
+                                "@ ${p.heartRate.toInt()} bpm",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                formattedTime,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     },
                     trailingContent = {
                         IconButton(onClick = { viewModel.removeCalibrationPoint(index) }) {

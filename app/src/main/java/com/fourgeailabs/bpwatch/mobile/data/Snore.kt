@@ -41,8 +41,11 @@ interface SnoreDao {
     @Query("SELECT * FROM snore_events WHERE timestamp < :before ORDER BY timestamp ASC")
     suspend fun eventsOlderThan(before: Long): List<SnoreEvent>
 
-    @Query("SELECT * FROM snore_events ORDER BY timestamp ASC")
+    @Query("SELECT * FROM snore_events ORDER BY timestamp DESC")
     suspend fun allOrdered(): List<SnoreEvent>
+
+    @Query("SELECT * FROM snore_events ORDER BY timestamp DESC")
+    fun observeAllOrdered(): Flow<List<SnoreEvent>>
 
     @Query("DELETE FROM snore_events WHERE timestamp < :before")
     suspend fun deleteOlderThan(before: Long): Int

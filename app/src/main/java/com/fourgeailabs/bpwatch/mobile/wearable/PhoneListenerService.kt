@@ -49,6 +49,8 @@ class PhoneListenerService : WearableListenerService() {
             Link.PATH_BP_RESULT -> handleBpResult(event)
             Link.PATH_WRIST_SET -> handleWristSet(event)
             Link.PATH_BATTERY_STATE -> handleBatteryState(event)
+            Link.PATH_BODY_FAT_SYNC -> handleBodyFatSync(event)
+            Link.PATH_SENSOR_TELEMETRY -> handleSensorTelemetry(event)
         }
     }
 
@@ -167,6 +169,12 @@ class PhoneListenerService : WearableListenerService() {
             val map = DataMap.fromByteArray(event.data)
             val hr = map.getFloat(Link.KEY_HEART_RATE)
             WatchLiveState.updateLiveHr(hr)
+            if (map.containsKey(Link.KEY_HRV_RMSSD)) {
+                val hrv = map.getFloat(Link.KEY_HRV_RMSSD)
+                if (hrv > 0f) {
+                    WatchLiveState.updateLiveHrv(hrv)
+                }
+            }
             if (hr > 0f) {
                 val now = System.currentTimeMillis()
                 if (now - lastLiveHrPersistedAt >= 60_000L) {
@@ -272,6 +280,66 @@ class PhoneListenerService : WearableListenerService() {
         }
     }
 
+    private fun handleBodyFatSync(event: MessageEvent) {
+        scope.launch {
+            try {
+                val map = DataMap.fromByteArray(event.data)
+                val bodyFatPct = map.getFloat(Link.KEY_BODY_FAT_PCT)
+                val skeletalMuscle = if (map.containsKey(Link.KEY_SKELETAL_MUSCLE_KG)) map.getFloat(Link.KEY_SKELETAL_MUSCLE_KG) else null
+                val leanMass = if (map.containsKey(Link.KEY_LEAN_MASS_KG)) map.getFloat(Link.KEY_LEAN_MASS_KG) else null
+                val fatMass = if (map.containsKey(Link.KEY_FAT_MASS_KG)) map.getFloat(Link.KEY_FAT_MASS_KG) else null
+                val bmr = if (map.containsKey(Link.KEY_BMR_KCAL)) map.getFloat(Link.KEY_BMR_KCAL) else null
+                val water = if (map.containsKey(Link.KEY_BODY_WATER_LITERS)) map.getFloat(Link.KEY_BODY_WATER_LITERS) else null
+                val ts = if (map.containsKey(Link.KEY_TIMESTAMP)) map.getLong(Link.KEY_TIMESTAMP) else System.currentTimeMillis()
+
+                val repo = BpRepository.get(applicationContext)
+                repo.addHealthLog(
+                    com.fourgeailabs.bpwatch.mobile.data.HealthLog(
+                        timestamp = ts,
+                        kind = "body_fat",
+                        value = bodyFatPct.toDouble(),
+                        label = "Body Fat: ${String.format(java.util.Locale.US, "%.1f", bodyFatPct)}%",
+                    )
+                )
+
+                // Write to Health Connect
+                val hc = HealthConnectManager(applicationContext)
+                if (hc.isAvailable && hc.hasPermissions()) {
+                    hc.writeBodyFat(bodyFatPct.toDouble(), Instant.ofEpochMilli(ts))
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun handleSensorTelemetry(event: MessageEvent) {
+        scope.launch {
+            try {
+                val map = DataMap.fromByteArray(event.data)
+                val ts = if (map.containsKey(Link.KEY_TIMESTAMP)) map.getLong(Link.KEY_TIMESTAMP) else System.currentTimeMillis()
+                val hc = HealthConnectManager(applicationContext)
+                val hasHc = hc.isAvailable && hc.hasPermissions()
+
+                if (map.containsKey(Link.KEY_RESTING_HR)) {
+                    val rHr = map.getFloat(Link.KEY_RESTING_HR)
+                    if (rHr > 0f && hasHc) {
+                        hc.writeRestingHeartRate(rHr.toLong(), Instant.ofEpochMilli(ts))
+                    }
+                }
+                if (map.containsKey(Link.KEY_HRV_RMSSD)) {
+                    val hrv = map.getFloat(Link.KEY_HRV_RMSSD)
+                    if (hrv > 0f) {
+                        WatchLiveState.updateLiveHrv(hrv)
+                        if (hasHc) {
+                            hc.writeHeartRateVariability(hrv.toDouble(), Instant.ofEpochMilli(ts))
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     private fun handleHrReading(event: MessageEvent) {
         scope.launch {
             try {
@@ -292,6 +360,15 @@ class PhoneListenerService : WearableListenerService() {
                     map.getInt(Link.KEY_STRESS)
                 } else -1
                 val stress = stressRaw.takeIf { it >= 0 }
+
+                val skinTempC = if (map.containsKey(Link.KEY_SKIN_TEMP_C)) {
+                    map.getFloat(Link.KEY_SKIN_TEMP_C).takeIf { it > 0f }
+                } else null
+
+                val hrvRmssd = if (map.containsKey(Link.KEY_HRV_RMSSD)) {
+                    map.getFloat(Link.KEY_HRV_RMSSD).takeIf { it > 0f }
+                } else null
+                hrvRmssd?.let { WatchLiveState.updateLiveHrv(it) }
 
                 val posture = if (map.containsKey(Link.KEY_POSTURE)) {
                     map.getInt(Link.KEY_POSTURE)
@@ -327,6 +404,8 @@ class PhoneListenerService : WearableListenerService() {
                         bodyPosition = posture,
                         measurementLocation = measurementLocation,
                         activity = activity,
+                        skinTempC = skinTempC,
+                        hrvRmssd = hrvRmssd,
                         source = "watch",
                     )
                 )
@@ -345,6 +424,8 @@ class PhoneListenerService : WearableListenerService() {
                             bodyPosition = posture,
                             measurementLocation = measurementLocation,
                             activity = activity,
+                            skinTempC = skinTempC,
+                            hrvRmssd = hrvRmssd,
                             source = "watch",
                         )
                     )

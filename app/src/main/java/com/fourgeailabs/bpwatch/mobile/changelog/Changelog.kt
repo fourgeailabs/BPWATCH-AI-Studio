@@ -20,6 +20,56 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.07.03",
+        versionCode = 45,
+        date = "2026-09-23",
+        notes = listOf(
+            "Determinate loading circle for Blood Pressure checks: replaced indeterminate spinning graphic with a smooth loading circle that completes from 0% to 100% as the 30-second measurement progresses",
+            "Added Body Fat Index (BIA) scanner with interactive determinate loading circle showing real-time scan progress (0% to 100%), elapsed time, and live status feedback",
+            "Body Fat reader directly accessible from Home screen and Trends section with body composition insights and Health Connect sync",
+            "Added comprehensive Health Connect read and write permissions in AndroidManifest and HealthConnectManager for HRV, Resting HR, Body Fat, Skin Temperature, Basal Metabolic Rate, VO2 Max, Lean Body Mass, and Oxygen Saturation",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.02",
+        versionCode = 44,
+        date = "2026-09-23",
+        notes = listOf(
+            "Integrated interactive audio playback interface for detected snoring recordings inside Sleep History and Sleep Detail views",
+            "Added playback controls with audio scrub bar, real-time elapsed time tracking, and animated sound wave indicator",
+            "Enabled seamless sharing of individual snoring recordings via Android system Share Intent with FileProvider audio streaming",
+            "Added one-tap export to public Downloads folder and permanent deletion with storage and database cleanup",
+            "Expanded general History screen with segmented tabs for Blood Pressure and Sleep Snoring audio recordings",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.01",
+        versionCode = 43,
+        date = "2026-09-23",
+        notes = listOf(
+            "Added real-time Heart Rate Variability (HRV RMSSD) dashboard card on the home screen matching the Material 3 design system",
+            "Live streaming telemetry mirror from Galaxy Watch optical PPG sensors with pulsing LIVE status badge",
+            "Real-time autonomic balance analysis (parasympathetic recovery vs. sympathetic strain interpretation)",
+            "Dynamic sparkline waveform canvas showing continuous beat-to-beat variation trends",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.00",
+        versionCode = 42,
+        date = "2026-09-23",
+        notes = listOf(
+            "Configurable sleep schedule (bedtime and wake-up times) in dedicated Sleep settings for precise overnight tracking and snore window scheduling",
+            "Enhanced Health Connect historical sleep session retrieval syncing seamlessly from Samsung Health",
+            "Snore detection recording playback, permanent deletion, system share sheet, and export to Downloads folder",
+            "Customizable weight check reminders card in Settings supporting daily or specific day-of-week repeat alerts",
+            "Added live Skin Temperature card on Home screen and Trends chart, integrated into multimodal stress calculation",
+            "Heart Rate Variability (HRV RMSSD) tracking with fallback merging of local telemetry and Health Connect series",
+            "Body Fat Index integration from Galaxy Watch sensors and enhanced BMI calculations",
+            "Motion-assisted resting and sleeping heart rate measurement combining accelerometer, gyroscope, and PPG sensors",
+            "Accurate calibration history tracking with detailed date and time stamps for all cuff readings",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.06.01",
         versionCode = 41,
         date = "2026-09-23",

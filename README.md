@@ -18,7 +18,36 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.06.01 (Current)
+### v2.07.03 (Current)
+- **Determinate Loading Circle for Blood Pressure Measurements**: Replaced the indeterminate spinning animation with a smooth determinate circular progress indicator that completes from 0% to 100% over the 30-second measurement cycle, displaying live seconds countdown, completion percentage, and active heart rate.
+- **Body Fat Index (BIA) Reader with Determinate Scan Circle**: Built an interactive Bioelectrical Impedance Analysis (BIA) body composition scanner with a determinate 15-second loading circle, real-time status feedback, and instant sync to Health Connect.
+- **Home and Trends Quick Launchers**: Added instant access to the Body Fat scanner directly from the Home screen Body Fat health tile and the Trends graph view.
+- **Comprehensive Health Connect Sensor Permissions**: Declared and registered full read and write permissions in `AndroidManifest.xml` and `HealthConnectManager.kt` for HRV, Resting Heart Rate, Body Fat, Skin Temperature, Basal Metabolic Rate, VO2 Max, Lean Body Mass, and Oxygen Saturation.
+
+### v2.07.02
+- **Snoring Audio Playback in Sleep History**: Implemented a comprehensive audio playback and management interface for detected snoring events directly within the Sleep History and Sleep Detail views.
+- **Interactive Playback Controls & Waveform Scrubber**: Integrated audio playback with position slider, duration counters, play/pause controls, and pulsing audio wave indicator.
+- **Share via Android Intent**: Integrated one-tap sharing using Android `ACTION_SEND` Intent and `FileProvider` to forward audio clips to email, messaging, or cloud storage.
+- **Export to Downloads & Deletion Management**: Added one-tap export to the device's public `Downloads` directory and permanent file deletion with automatic database and storage pruning.
+- **Enhanced History Screen**: Expanded the main History section with segmented tabs for Blood Pressure records and Sleep & Snoring audio history.
+
+### v2.07.01
+- **Real-Time HRV Dashboard Card**: Added a dedicated, Material 3-styled Heart Rate Variability (HRV) component on the Home dashboard displaying live RMSSD values from the Galaxy Watch optical sensor stream.
+- **Autonomic Nervous System Recovery Insights**: Real-time evaluation of parasympathetic (rest & recovery) vs. sympathetic (stress & physical exertion) balance with instant clinical status interpretations.
+- **Dynamic Waveform Canvas & Sparkline**: Integrated real-time sparkline graph visualizing continuous beat-to-beat variation trends and live streaming telemetry with a pulsing `LIVE` badge.
+
+### v2.07.00
+- **Configurable Sleep Tracking Window**: Added dedicated Sleep Schedule settings in the phone app (Bedtime & Wake-up times) to accurately schedule overnight sleep monitoring and snore detection.
+- **Historical Sleep Sync via Health Connect**: Optimized multi-page historical sleep session queries from Health Connect, allowing seamless synchronization of historical sleep records from Samsung Health.
+- **Snore Detection Audio Management**: Enabled in-app audio playback of recorded snore events, permanent deletion with database pruning, Android system share sheet forwarding, and file export to user-accessible Downloads folder.
+- **Weight Check Reminders**: Introduced customizable Weight Check Reminders card in Settings with repeat alarms for everyday or specific days of the week.
+- **Real-Time Skin Temperature & Multimodal Stress**: Integrated live Skin Temperature card on Home screen, trend charts in Trends screen, and incorporation of skin temp into stress calculations alongside HR and BP.
+- **Heart Rate Variability (HRV RMSSD)**: Added real-time HRV monitoring and trend charting with local sensor and Health Connect data merging.
+- **Body Fat Index & Advanced BMI**: Integrated body fat index metrics from Samsung Galaxy Watch BIA sensors to provide accurate BMI and body composition analytics.
+- **Motion-Assisted Resting & Sleeping HR**: Combined accelerometer and gyroscope kinematics with optical PPG to detect true resting heart rate and sleeping heart rate.
+- **Calibration Timestamping**: Added explicit date and time logging for all cuff calibration points to enhance calibration tracking over time.
+
+### v2.06.01
 - **Health Connect Skin Temperature Permissions**: Resolved permission grant issues for Skin Temperature on Android / Google Pixel 10 Pro XL and Samsung Health by declaring `READ_SKIN_TEMPERATURE` and `WRITE_SKIN_TEMPERATURE` permissions and integrating them with the Health Connect permission manager.
 - **Customizable Battery-Saving Mode**: Added a battery-saving mode in the Watch section of the Settings menu allowing users to configure the trigger percentage (e.g. 15%, 20%, 25%, 30%, 40%) or toggle it on/off.
 - **Dynamic Sensor Polling Reduction**: When watch battery drops below the configured percentage, sensor polling frequency, accelerometer sampling delay (`SENSOR_DELAY_UI` -> `SENSOR_DELAY_NORMAL`), PPG sampling duration, and Bluetooth telemetry mirroring are automatically throttled to preserve battery.

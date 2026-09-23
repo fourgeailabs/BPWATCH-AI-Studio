@@ -12,8 +12,8 @@ android {
     applicationId = "com.fourgeailabs.bpwatch"
     minSdk = 26
     targetSdk = 34
-    versionCode = 41
-    versionName = "2.06.01"
+    versionCode = 45
+    versionName = "2.07.03"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -61,9 +61,11 @@ android {
 
 val bundleWearApk = tasks.register<Copy>("bundleWearApk") {
   dependsOn(":wear:assembleDebug")
-  val wearDebugApk = rootProject.file("wear/build/outputs/apk/debug/wear-debug.apk")
-  val fallbackApk = rootProject.file("releases/BPWatch-Wear-GalaxyWatch-debug.apk")
-  from(if (wearDebugApk.exists()) wearDebugApk else fallbackApk)
+  from({
+    val wearDebugApk = rootProject.file("wear/build/outputs/apk/debug/wear-debug.apk")
+    val fallbackApk = rootProject.file("releases/BPWatch-Wear-GalaxyWatch-debug.apk")
+    if (wearDebugApk.exists()) wearDebugApk else fallbackApk
+  })
   into(layout.buildDirectory.dir("generated/wearApk"))
   rename { "bpwatch-wear.apk" }
 }

@@ -23,6 +23,7 @@ import androidx.health.connect.client.records.HydrationRecord
 import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.MealType
 import androidx.health.connect.client.records.NutritionRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
@@ -116,30 +117,42 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getWritePermission(BloodPressureRecord::class),
         // Dashboard tiles (v2.0).
         HealthPermission.getReadPermission(StepsRecord::class),
+        HealthPermission.getWritePermission(StepsRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
+        HealthPermission.getWritePermission(DistanceRecord::class),
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+        HealthPermission.getWritePermission(TotalCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getWritePermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(WeightRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
+        HealthPermission.getWritePermission(SleepSessionRecord::class),
         HealthPermission.getReadPermission(HydrationRecord::class),
         // "+ Log" sheet writes (v2.0).
         HealthPermission.getWritePermission(WeightRecord::class),
         HealthPermission.getWritePermission(HydrationRecord::class),
         HealthPermission.getWritePermission(NutritionRecord::class),
-        // Full-coverage reads (v2.2): everything Health Connect offers that
-        // maps to real fitness data. Deliberately no ECG — Health Connect
-        // has no ECG record type and Samsung's ECG lives behind its
-        // partner-only Privileged Health SDK.
+        // Full-coverage reads and writes for sensor checks:
         HealthPermission.getReadPermission(RestingHeartRateRecord::class),
+        HealthPermission.getWritePermission(RestingHeartRateRecord::class),
         HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
+        HealthPermission.getWritePermission(HeartRateVariabilityRmssdRecord::class),
         HealthPermission.getReadPermission(RespiratoryRateRecord::class),
+        HealthPermission.getWritePermission(RespiratoryRateRecord::class),
         HealthPermission.getReadPermission(Vo2MaxRecord::class),
+        HealthPermission.getWritePermission(Vo2MaxRecord::class),
         HealthPermission.getReadPermission(BodyFatRecord::class),
+        HealthPermission.getWritePermission(BodyFatRecord::class),
         HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
+        HealthPermission.getWritePermission(BasalMetabolicRateRecord::class),
         HealthPermission.getReadPermission(FloorsClimbedRecord::class),
+        HealthPermission.getWritePermission(FloorsClimbedRecord::class),
         HealthPermission.getReadPermission(LeanBodyMassRecord::class),
-        // v2.4.6: skin temperature for the sleep detail screen.
+        HealthPermission.getWritePermission(LeanBodyMassRecord::class),
         HealthPermission.getReadPermission(SkinTemperatureRecord::class),
+        HealthPermission.getWritePermission(SkinTemperatureRecord::class),
+        HealthPermission.getReadPermission(OxygenSaturationRecord::class),
+        HealthPermission.getWritePermission(OxygenSaturationRecord::class),
     )
 
     /**
@@ -299,6 +312,54 @@ class HealthConnectManager(private val context: Context) {
             ?.sumOf { sleepMinutes(it) }
             ?: 0L
 
+        // Latest body fat percentage
+        val bodyFatPct = try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = BodyFatRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(now.minus(30, ChronoUnit.DAYS), now),
+                )
+            ).records.maxByOrNull { it.time }?.percentage?.let { HcUnitReaders.percentage(it) }
+        } catch (_: Exception) {
+            null
+        }
+
+        // Latest HRV RMSSD (ms)
+        val hrvRmssd = try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = HeartRateVariabilityRmssdRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(now.minus(7, ChronoUnit.DAYS), now),
+                )
+            ).records.maxByOrNull { it.time }?.heartRateVariabilityMillis
+        } catch (_: Exception) {
+            null
+        }
+
+        // Latest Resting HR (bpm)
+        val restingHr = try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = RestingHeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(now.minus(7, ChronoUnit.DAYS), now),
+                )
+            ).records.maxByOrNull { it.time }?.beatsPerMinute
+        } catch (_: Exception) {
+            null
+        }
+
+        // Latest Skin Temperature delta
+        val skinTempDelta = try {
+            client.readRecords(
+                ReadRecordsRequest(
+                    recordType = SkinTemperatureRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(now.minus(48, ChronoUnit.HOURS), now),
+                )
+            ).records.flatMap { it.deltas }.maxByOrNull { it.time }?.let { HcUnitReaders.celsiusDelta(it.delta) }
+        } catch (_: Exception) {
+            null
+        }
+
         TodayMetrics(
             steps = agg.get(StepsRecord.COUNT_TOTAL),
             distanceMeters = agg.get(DistanceRecord.DISTANCE_TOTAL)?.let { HcUnitReaders.meters(it) },
@@ -307,6 +368,10 @@ class HealthConnectManager(private val context: Context) {
             weightKg = weightKg,
             sleepHours = (lastNightSleepMinutes / 60.0).takeIf { lastNightSleepMinutes > 0 },
             hydrationLiters = agg.get(HydrationRecord.VOLUME_TOTAL)?.let { HcUnitReaders.liters(it) },
+            bodyFatPct = bodyFatPct,
+            hrvRmssd = hrvRmssd,
+            restingHr = restingHr,
+            skinTempDeltaC = skinTempDelta,
         )
     }
 
@@ -424,6 +489,18 @@ class HealthConnectManager(private val context: Context) {
                                 bucket.toEpochMilli(),
                                 HcUnitReaders.percentage(pct).toFloat(),
                             )
+                        }
+                    }
+                    .sortedBy { it.timestamp }
+            }
+            HcTrendMetric.SKIN_TEMP -> {
+                val records = readAllRecords<SkinTemperatureRecord>(filter)
+                records.flatMap { it.deltas }
+                    .groupBy { bucketStart(it.time, start, slicer) }
+                    .mapNotNull { (bucket, rs) ->
+                        rs.maxByOrNull { it.time }?.let { d ->
+                            val delta = HcUnitReaders.celsiusDelta(d.delta)
+                            if (delta.isFinite()) HcTrendPoint(bucket.toEpochMilli(), delta.toFloat()) else null
                         }
                     }
                     .sortedBy { it.timestamp }
@@ -842,6 +919,48 @@ class HealthConnectManager(private val context: Context) {
         )
     }
 
+    /** Logs a body fat entry to Health Connect. Throws on failure. */
+    suspend fun writeBodyFat(percentage: Double, time: Instant) {
+        val zoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+        client.insertRecords(
+            listOf(
+                BodyFatRecord(
+                    time = time,
+                    zoneOffset = zoneOffset,
+                    percentage = androidx.health.connect.client.units.Percentage(percentage),
+                )
+            )
+        )
+    }
+
+    /** Logs a resting heart rate entry to Health Connect. Throws on failure. */
+    suspend fun writeRestingHeartRate(bpm: Long, time: Instant) {
+        val zoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+        client.insertRecords(
+            listOf(
+                RestingHeartRateRecord(
+                    time = time,
+                    zoneOffset = zoneOffset,
+                    beatsPerMinute = bpm,
+                )
+            )
+        )
+    }
+
+    /** Logs an HRV RMSSD entry to Health Connect. Throws on failure. */
+    suspend fun writeHeartRateVariability(rmssdMs: Double, time: Instant) {
+        val zoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+        client.insertRecords(
+            listOf(
+                HeartRateVariabilityRmssdRecord(
+                    time = time,
+                    zoneOffset = zoneOffset,
+                    heartRateVariabilityMillis = rmssdMs,
+                )
+            )
+        )
+    }
+
     /** Re-exported so the UI layer doesn't need the HC import for meal types. */
     object FoodMeal {
         const val BREAKFAST = MealType.MEAL_TYPE_BREAKFAST
@@ -990,7 +1109,7 @@ class HealthConnectManager(private val context: Context) {
 /** Health Connect-backed Trends metrics (v2.1): every home tile's landing spot. */
 enum class HcTrendMetric {
     STEPS, DISTANCE, CALORIES, WEIGHT, SLEEP, HYDRATION,
-    RESTING_HR, HRV, BODY_FAT,
+    RESTING_HR, HRV, BODY_FAT, SKIN_TEMP,
 }
 
 /** One bucketed point of a Health Connect Trends metric. */
@@ -1032,6 +1151,10 @@ data class TodayMetrics(
     val weightKg: Double? = null,
     val sleepHours: Double? = null,
     val hydrationLiters: Double? = null,
+    val bodyFatPct: Double? = null,
+    val hrvRmssd: Double? = null,
+    val restingHr: Long? = null,
+    val skinTempDeltaC: Double? = null,
 )
 
 /** v2.4.6: one sleep stage segment for the hypnogram chart. */

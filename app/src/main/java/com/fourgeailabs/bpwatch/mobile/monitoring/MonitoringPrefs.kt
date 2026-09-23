@@ -190,6 +190,70 @@ class MonitoringPrefs(context: Context) {
         _batterySaverEnabled.value = enabled
     }
 
+    // ------------------------------------------------------------------
+    // Sleep schedule (Bedtime & Wake time) for snore detection & sleep window
+    // ------------------------------------------------------------------
+    private val _sleepStartHour = MutableStateFlow(prefs.getInt(KEY_SLEEP_START_HOUR, 22).coerceIn(0, 23))
+    val sleepStartHour: StateFlow<Int> = _sleepStartHour.asStateFlow()
+
+    private val _sleepStartMinute = MutableStateFlow(prefs.getInt(KEY_SLEEP_START_MIN, 0).coerceIn(0, 59))
+    val sleepStartMinute: StateFlow<Int> = _sleepStartMinute.asStateFlow()
+
+    private val _sleepEndHour = MutableStateFlow(prefs.getInt(KEY_SLEEP_END_HOUR, 7).coerceIn(0, 23))
+    val sleepEndHour: StateFlow<Int> = _sleepEndHour.asStateFlow()
+
+    private val _sleepEndMinute = MutableStateFlow(prefs.getInt(KEY_SLEEP_END_MIN, 0).coerceIn(0, 59))
+    val sleepEndMinute: StateFlow<Int> = _sleepEndMinute.asStateFlow()
+
+    fun setSleepSchedule(startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
+        val sH = startHour.coerceIn(0, 23)
+        val sM = startMinute.coerceIn(0, 59)
+        val eH = endHour.coerceIn(0, 23)
+        val eM = endMinute.coerceIn(0, 59)
+        prefs.edit()
+            .putInt(KEY_SLEEP_START_HOUR, sH)
+            .putInt(KEY_SLEEP_START_MIN, sM)
+            .putInt(KEY_SLEEP_END_HOUR, eH)
+            .putInt(KEY_SLEEP_END_MIN, eM)
+            .apply()
+        _sleepStartHour.value = sH
+        _sleepStartMinute.value = sM
+        _sleepEndHour.value = eH
+        _sleepEndMinute.value = eM
+    }
+
+    // ------------------------------------------------------------------
+    // Weight check reminder preferences
+    // ------------------------------------------------------------------
+    private val _weightReminderEnabled = MutableStateFlow(prefs.getBoolean(KEY_WEIGHT_REMINDER_ENABLED, false))
+    val weightReminderEnabled: StateFlow<Boolean> = _weightReminderEnabled.asStateFlow()
+
+    private val _weightReminderHour = MutableStateFlow(prefs.getInt(KEY_WEIGHT_REMINDER_HOUR, 8).coerceIn(0, 23))
+    val weightReminderHour: StateFlow<Int> = _weightReminderHour.asStateFlow()
+
+    private val _weightReminderMinute = MutableStateFlow(prefs.getInt(KEY_WEIGHT_REMINDER_MIN, 0).coerceIn(0, 59))
+    val weightReminderMinute: StateFlow<Int> = _weightReminderMinute.asStateFlow()
+
+    private val _weightReminderDays = MutableStateFlow(
+        prefs.getString(KEY_WEIGHT_REMINDER_DAYS, "1,2,3,4,5,6,7") ?: "1,2,3,4,5,6,7"
+    )
+    val weightReminderDays: StateFlow<String> = _weightReminderDays.asStateFlow()
+
+    fun setWeightReminder(enabled: Boolean, hour: Int, minute: Int, daysCsv: String) {
+        val h = hour.coerceIn(0, 23)
+        val m = minute.coerceIn(0, 59)
+        prefs.edit()
+            .putBoolean(KEY_WEIGHT_REMINDER_ENABLED, enabled)
+            .putInt(KEY_WEIGHT_REMINDER_HOUR, h)
+            .putInt(KEY_WEIGHT_REMINDER_MIN, m)
+            .putString(KEY_WEIGHT_REMINDER_DAYS, daysCsv)
+            .apply()
+        _weightReminderEnabled.value = enabled
+        _weightReminderHour.value = h
+        _weightReminderMinute.value = m
+        _weightReminderDays.value = daysCsv
+    }
+
     companion object {
         private const val PREFS = "bpwatch_monitoring"
         private const val KEY_CONFIGURED = "configured"
@@ -208,5 +272,13 @@ class MonitoringPrefs(context: Context) {
         private const val KEY_WRIST = "wrist_side"
         private const val KEY_BATTERY_SAVER_THRESHOLD = "battery_saver_threshold"
         private const val KEY_BATTERY_SAVER_ENABLED = "battery_saver_enabled"
+        private const val KEY_SLEEP_START_HOUR = "sleep_start_hour"
+        private const val KEY_SLEEP_START_MIN = "sleep_start_min"
+        private const val KEY_SLEEP_END_HOUR = "sleep_end_hour"
+        private const val KEY_SLEEP_END_MIN = "sleep_end_min"
+        private const val KEY_WEIGHT_REMINDER_ENABLED = "weight_reminder_enabled"
+        private const val KEY_WEIGHT_REMINDER_HOUR = "weight_reminder_hour"
+        private const val KEY_WEIGHT_REMINDER_MIN = "weight_reminder_min"
+        private const val KEY_WEIGHT_REMINDER_DAYS = "weight_reminder_days"
     }
 }

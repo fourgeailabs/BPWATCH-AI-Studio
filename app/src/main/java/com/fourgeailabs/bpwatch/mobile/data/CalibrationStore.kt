@@ -49,6 +49,7 @@ class CalibrationStore(private val context: Context) {
                 put("hr", p.heartRate.toDouble())
                 put("sys", p.sys)
                 put("dia", p.dia)
+                put("timestamp", p.timestamp)
             }
         }).toString()
 
@@ -61,6 +62,7 @@ class CalibrationStore(private val context: Context) {
                     heartRate = o.getDouble("hr").toFloat(),
                     sys = o.getInt("sys"),
                     dia = o.getInt("dia"),
+                    timestamp = if (o.has("timestamp")) o.getLong("timestamp") else 0L,
                 )
             }
         } catch (e: Exception) {

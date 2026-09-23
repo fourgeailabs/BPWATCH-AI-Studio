@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import android.widget.Toast
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -38,11 +43,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fourgeailabs.bpwatch.mobile.MainViewModel
 import com.fourgeailabs.bpwatch.mobile.data.SnoreEvent
 import com.fourgeailabs.bpwatch.mobile.snore.SnoreScheduler
+import com.fourgeailabs.bpwatch.mobile.snore.SnoreStorage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -117,7 +126,7 @@ fun SnoreScreen(viewModel: MainViewModel) {
 
         SnoreBarChart(buckets = buckets)
 
-        Text("Last night", style = MaterialTheme.typography.titleMedium)
+        Text("Last night's recordings", style = MaterialTheme.typography.titleMedium)
         if (lastNightEvents.isEmpty()) {
             Text(
                 "No snoring detected last night.",
@@ -125,11 +134,15 @@ fun SnoreScreen(viewModel: MainViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column {
-                    lastNightEvents.forEach { event ->
-                        SnoreEventRow(event = event, zone = zone)
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                lastNightEvents.forEach { event ->
+                    SnoreRecordingPlayerCard(
+                        event = event,
+                        zone = zone,
+                        onDeleted = {
+                            lastNightEvents = lastNightEvents.filter { it.timestamp != event.timestamp }
+                        },
+                    )
                 }
             }
         }
@@ -250,56 +263,3 @@ private fun SnoreBarChart(buckets: List<SnoreBucket>) {
     }
 }
 
-@Composable
-private fun SnoreEventRow(event: SnoreEvent, zone: ZoneId) {
-    // One MediaPlayer per row, released when the row leaves the composition.
-    // Rows are few (a night of events), so per-row players are the simple,
-    // correct choice over a shared one.
-    val player = remember { MediaPlayer() }
-    DisposableEffect(Unit) {
-        onDispose {
-            try {
-                player.release()
-            } catch (_: Exception) {
-            }
-        }
-    }
-    var playing by remember { mutableStateOf(false) }
-    val timeFmt = remember { DateTimeFormatter.ofPattern("h:mm a").withZone(zone) }
-
-    fun togglePlay() {
-        try {
-            if (playing) {
-                player.reset()
-                playing = false
-            } else {
-                val path = event.clipPath ?: return
-                player.reset()
-                player.setDataSource(path)
-                player.prepare()
-                player.start()
-                playing = true
-                player.setOnCompletionListener { playing = false }
-            }
-        } catch (_: Exception) {
-            playing = false
-        }
-    }
-
-    ListItem(
-        headlineContent = {
-            Text(timeFmt.format(Instant.ofEpochMilli(event.timestamp)))
-        },
-        supportingContent = {
-            Text("${event.durationMs / 1000} sec")
-        },
-        trailingContent = {
-            IconButton(onClick = { togglePlay() }, enabled = event.clipPath != null) {
-                Icon(
-                    if (playing) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                    contentDescription = if (playing) "Stop" else "Play clip",
-                )
-            }
-        },
-    )
-}

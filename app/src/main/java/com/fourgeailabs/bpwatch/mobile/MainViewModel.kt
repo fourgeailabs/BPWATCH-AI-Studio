@@ -92,14 +92,38 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     // ------------------------------------------------------------------
-    // v2.3 snore detection: phone microphone, overnight 22:00–07:00 window.
+    // v2.3 snore detection: phone microphone, configurable sleep window.
     // ------------------------------------------------------------------
     val snoreEnabled: StateFlow<Boolean> = monitoringPrefs.snoreDetection
     val snoreStatus: StateFlow<String?> = SnoreState.status
     val snoreListening: StateFlow<Boolean> = SnoreState.listening
-    /** Last night's (22:00–07:00) snore count; null = not loaded yet. */
+    /** Last night's snore count; null = not loaded yet. */
     var lastNightSnoreCount: Int? by mutableStateOf(null)
         private set
+
+    val sleepStartHour: StateFlow<Int> = monitoringPrefs.sleepStartHour
+    val sleepStartMinute: StateFlow<Int> = monitoringPrefs.sleepStartMinute
+    val sleepEndHour: StateFlow<Int> = monitoringPrefs.sleepEndHour
+    val sleepEndMinute: StateFlow<Int> = monitoringPrefs.sleepEndMinute
+
+    fun setSleepSchedule(startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
+        monitoringPrefs.setSleepSchedule(startHour, startMinute, endHour, endMinute)
+        SnoreScheduler.schedule(getApplication())
+    }
+
+    val weightReminderEnabled: StateFlow<Boolean> = monitoringPrefs.weightReminderEnabled
+    val weightReminderHour: StateFlow<Int> = monitoringPrefs.weightReminderHour
+    val weightReminderMinute: StateFlow<Int> = monitoringPrefs.weightReminderMinute
+    val weightReminderDays: StateFlow<String> = monitoringPrefs.weightReminderDays
+
+    fun setWeightReminder(enabled: Boolean, hour: Int, minute: Int, daysCsv: String) {
+        monitoringPrefs.setWeightReminder(enabled, hour, minute, daysCsv)
+        if (enabled) {
+            com.fourgeailabs.bpwatch.mobile.reminders.WeightReminderReceiver.schedule(getApplication(), hour, minute, daysCsv)
+        } else {
+            com.fourgeailabs.bpwatch.mobile.reminders.WeightReminderReceiver.cancel(getApplication())
+        }
+    }
 
     // ------------------------------------------------------------------
     // v2.0 dashboard: Health Connect tiles + day-grouped timeline.
@@ -117,6 +141,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val hcPermissions: Set<String> get() = hc.permissions
     val hcReadPermissions: Set<String> get() = hc.readPermissions
+    val healthConnectManager: HealthConnectManager get() = hc
+    val dashboardMetrics: StateFlow<DashboardMetrics> get() = _dashboard
+
+    suspend fun recordBodyFat(percent: Double, time: Instant = Instant.now()) {
+        if (hc.isAvailable) {
+            hc.writeBodyFat(percent, time)
+        }
+        refreshDashboard()
+    }
 
     // v2.4.5: must be declared BEFORE the init block — init calls
     // refreshDashboard(), which reads _refreshing. (Kotlin runs property
@@ -273,9 +306,39 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             emptyList()
         }
 
+    /** Snore events for a given wake date's overnight window. */
+    suspend fun snoreEventsForNight(wakeDate: java.time.LocalDate): List<SnoreEvent> =
+        try {
+            val zone = java.time.ZoneId.systemDefault()
+            val start = wakeDate.minusDays(1).atTime(18, 0).atZone(zone).toInstant().toEpochMilli()
+            val end = wakeDate.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+            AppDatabase.get(getApplication()).snoreDao().eventsBetween(start, end)
+        } catch (_: Exception) {
+            emptyList()
+        }
+
+    /** Reactive snore events for a given wake date's overnight window. */
+    fun observeSnoreEventsForNight(wakeDate: java.time.LocalDate): kotlinx.coroutines.flow.Flow<List<SnoreEvent>> {
+        val zone = java.time.ZoneId.systemDefault()
+        val start = wakeDate.minusDays(1).atTime(18, 0).atZone(zone).toInstant().toEpochMilli()
+        val end = wakeDate.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+        return repo.snoreDao.observeBetween(start, end)
+    }
+
     /** Reactive snore events in [start, end) for the Snore charts. */
     fun observeSnoreEvents(start: Long, end: Long) =
         repo.snoreDao.observeBetween(start, end)
+
+    /** All snore events across history (newest first). */
+    fun observeAllSnoreEvents() =
+        repo.snoreDao.observeAllOrdered()
+
+    /** Delete a snore event and its audio file. */
+    fun deleteSnoreEvent(event: SnoreEvent) {
+        viewModelScope.launch(Dispatchers.IO) {
+            SnoreStorage.deleteEvent(getApplication(), event)
+        }
+    }
 
     /**
      * (Re)loads today's Health Connect metrics for the dashboard tiles.
@@ -367,6 +430,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         } catch (_: Exception) {
             null
         }
+        val latest = try {
+            AppDatabase.get(getApplication()).readingDao().latestReading()
+        } catch (_: Exception) {
+            null
+        }
+
+        val skinTempC = t?.skinTempDeltaC ?: latest?.skinTempC?.toDouble()
+        val hrvRmssd = t?.hrvRmssd ?: latest?.hrvRmssd?.toDouble()
+        val restingHr = t?.restingHr?.toInt() ?: latest?.heartRate?.toInt()
+        val bodyFat = t?.bodyFatPct
+
         _dashboard.value = DashboardMetrics(
             // v2.3.1: prefer Health Connect's merged cross-device steps
             // (phone + watch, matches Samsung Health); the watch-only
@@ -381,6 +455,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             stress = stress,
             bmi = bmi,
             bmiLabel = bmiLabel,
+            restingHeartRateBpm = restingHr,
+            hrvRmssd = hrvRmssd,
+            bodyFatPercentage = bodyFat,
+            skinTempC = skinTempC,
             hcReadGranted = true,
         )
     }
@@ -755,6 +833,10 @@ data class DashboardMetrics(
     /** v2.2: derived from profile height + latest weight (HC preferred). */
     val bmi: Double? = null,
     val bmiLabel: String? = null,
+    val restingHeartRateBpm: Int? = null,
+    val hrvRmssd: Double? = null,
+    val bodyFatPercentage: Double? = null,
+    val skinTempC: Double? = null,
     val hcReadGranted: Boolean = false,
 )
 

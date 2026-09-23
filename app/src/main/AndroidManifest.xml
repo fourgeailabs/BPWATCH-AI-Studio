@@ -16,19 +16,33 @@
     <uses-permission android:name="android.permission.health.WRITE_HYDRATION" />
     <uses-permission android:name="android.permission.health.WRITE_NUTRITION" />
 
-    <!-- v2.2 full-coverage reads: everything Health Connect offers that maps
-         to real fitness data (no ECG type exists in Health Connect; Samsung's
-         ECG stays behind its partner-only SDK). -->
+    <!-- v2.2 full-coverage reads & writes: everything Health Connect offers that maps
+         to real fitness and sensor telemetry data (HRV, Resting HR, Skin Temp, Body Fat, SpO2, etc.). -->
     <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.WRITE_RESTING_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
+    <uses-permission android:name="android.permission.health.WRITE_HEART_RATE_VARIABILITY" />
     <uses-permission android:name="android.permission.health.READ_RESPIRATORY_RATE" />
+    <uses-permission android:name="android.permission.health.WRITE_RESPIRATORY_RATE" />
     <uses-permission android:name="android.permission.health.READ_VO2_MAX" />
+    <uses-permission android:name="android.permission.health.WRITE_VO2_MAX" />
     <uses-permission android:name="android.permission.health.READ_BODY_FAT" />
+    <uses-permission android:name="android.permission.health.WRITE_BODY_FAT" />
     <uses-permission android:name="android.permission.health.READ_BASAL_METABOLIC_RATE" />
+    <uses-permission android:name="android.permission.health.WRITE_BASAL_METABOLIC_RATE" />
     <uses-permission android:name="android.permission.health.READ_FLOORS_CLIMBED" />
+    <uses-permission android:name="android.permission.health.WRITE_FLOORS_CLIMBED" />
     <uses-permission android:name="android.permission.health.READ_LEAN_BODY_MASS" />
+    <uses-permission android:name="android.permission.health.WRITE_LEAN_BODY_MASS" />
     <uses-permission android:name="android.permission.health.READ_SKIN_TEMPERATURE" />
     <uses-permission android:name="android.permission.health.WRITE_SKIN_TEMPERATURE" />
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <uses-permission android:name="android.permission.health.WRITE_OXYGEN_SATURATION" />
+    <uses-permission android:name="android.permission.health.WRITE_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+    <uses-permission android:name="android.permission.health.WRITE_STEPS" />
+    <uses-permission android:name="android.permission.health.WRITE_DISTANCE" />
+    <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED" />
 
     <!-- Watch installer: ADB-over-Wi-Fi socket to the watch -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -109,6 +123,27 @@
             android:turnScreenOn="true"
             android:excludeFromRecents="true"
             android:launchMode="singleTop" />
+
+        <!-- FileProvider for sharing snore clips and health export documents -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Weight check reminder receiver -->
+        <receiver
+            android:name="com.fourgeailabs.bpwatch.mobile.reminders.WeightReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.fourgeailabs.bpwatch.mobile.WEIGHT_REMINDER" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Receives heart-rate readings from the watch -->
         <service

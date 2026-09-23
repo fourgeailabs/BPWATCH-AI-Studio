@@ -22,6 +22,7 @@ data class CalibrationPoint(
     val heartRate: Float,
     val sys: Int,
     val dia: Int,
+    val timestamp: Long = System.currentTimeMillis(),
 )
 
 data class CalibrationModel(

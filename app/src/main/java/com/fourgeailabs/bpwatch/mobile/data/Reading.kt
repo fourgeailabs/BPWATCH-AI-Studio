@@ -28,5 +28,9 @@ data class Reading(
     val measurementLocation: Int? = null,
     /** Sensor-detected activity (e.g. "sitting", "walking", "standing"). */
     val activity: String? = null,
+    /** Skin temperature at time of measurement in Celsius. */
+    val skinTempC: Float? = null,
+    /** Heart Rate Variability RMSSD in milliseconds. */
+    val hrvRmssd: Float? = null,
     val source: String = "manual",
 )

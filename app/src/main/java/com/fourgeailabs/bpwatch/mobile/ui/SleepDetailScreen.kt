@@ -23,6 +23,11 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,6 +85,9 @@ fun SleepDetailScreen(
     var expandedCard by remember { mutableStateOf<String?>(null) }
     // v2.4.6: which sleep factor detail is open (null = main detail).
     var selectedFactor by remember { mutableStateOf<String?>(null) }
+    val snoreEvents by remember(wakeDate) {
+        viewModel.observeSnoreEventsForNight(wakeDate)
+    }.collectAsState(initial = emptyList())
 
     LaunchedEffect(wakeDate) {
         loading = true
@@ -550,19 +558,70 @@ fun SleepDetailScreen(
                 }
             }
 
-            // --- Snoring (our own detection).
-            SleepMetricCard(
-                title = "Snoring",
-                subtitle = "From BPWatch detection",
-                expanded = false,
-                onToggle = onOpenSnore,
-                chevronOnly = true,
+            // --- Snoring & Detected Audio Recordings
+            val snoreCount = snoreEvents.size
+            val snoreTotalMin = (snoreEvents.sumOf { it.durationMs }) / 60_000
+            val snoreSubtitle = if (snoreCount == 0) {
+                "No snoring detected"
+            } else {
+                "$snoreCount detected episode${if (snoreCount == 1) "" else "s"} · ${snoreTotalMin.coerceAtLeast(1)} min recorded"
+            }
+
+            ExpandableSleepCard(
+                title = "Snoring & Audio Recordings",
+                expanded = expandedCard == "snore",
+                onToggle = {
+                    expandedCard = if (expandedCard == "snore") null else "snore"
+                },
             ) {
-                Text(
-                    "Open the snore screen for last night's episodes.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.6f),
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = snoreSubtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.8f),
+                    )
+
+                    if (snoreEvents.isEmpty()) {
+                        Text(
+                            "No snore audio was recorded during this sleep window. Snoring detection listens automatically during your sleep schedule when enabled.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+                        OutlinedButton(
+                            onClick = onOpenSnore,
+                            modifier = Modifier.padding(top = 4.dp),
+                        ) {
+                            Icon(Icons.Filled.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Snore Detection Settings & History")
+                        }
+                    } else {
+                        Text(
+                            "Tap play to listen to audio clips recorded by your device's microphone during sleep. You can share recordings or export them to Downloads.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                        )
+
+                        snoreEvents.forEach { event ->
+                            SnoreRecordingPlayerCard(
+                                event = event,
+                                containerColor = Color(0xFF131326),
+                                onDeleted = {
+                                    // Flow automatically refreshes snoreEvents
+                                },
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = onOpenSnore,
+                            modifier = Modifier.padding(top = 6.dp),
+                        ) {
+                            Icon(Icons.Outlined.GraphicEq, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("View All-Night Snore Trends")
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(16.dp))

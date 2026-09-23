@@ -63,6 +63,54 @@ object SnoreStorage {
         }
     }
 
+    suspend fun deleteEvent(context: Context, event: com.fourgeailabs.bpwatch.mobile.data.SnoreEvent) {
+        val app = context.applicationContext
+        event.clipPath?.let { deleteQuietly(File(it)) }
+        AppDatabase.get(app).snoreDao().deleteByTimestamp(event.timestamp)
+    }
+
+    fun shareClip(context: Context, event: com.fourgeailabs.bpwatch.mobile.data.SnoreEvent) {
+        val path = event.clipPath ?: return
+        val file = File(path)
+        if (!file.exists()) return
+
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "audio/wav"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "Snore Recording - BPWatch")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "Share snore recording"))
+        } catch (e: Exception) {
+            android.util.Log.e("SnoreStorage", "Failed to share clip: ${e.message}")
+        }
+    }
+
+    fun exportClipToDownloads(context: Context, event: com.fourgeailabs.bpwatch.mobile.data.SnoreEvent): Boolean {
+        val path = event.clipPath ?: return false
+        val sourceFile = File(path)
+        if (!sourceFile.exists()) return false
+
+        return try {
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS
+            )
+            downloadsDir.mkdirs()
+            val destFile = File(downloadsDir, "snore_${event.timestamp}.wav")
+            sourceFile.copyTo(destFile, overwrite = true)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("SnoreStorage", "Failed to export clip: ${e.message}")
+            false
+        }
+    }
+
     private fun dirSizeBytes(dir: File): Long {
         var total = 0L
         try {

@@ -207,7 +207,19 @@ object Link {
     const val KEY_DIA = "dia"
     const val KEY_STRESS = "stress"
     const val KEY_RESTING_HR = "resting_hr"
+    const val KEY_SLEEPING_HR = "sleeping_hr"
+    const val KEY_HRV_RMSSD = "hrv_rmssd"
+    const val KEY_SKIN_TEMP_C = "skin_temp_c"
+    const val KEY_BODY_FAT_PCT = "body_fat_pct"
+    const val KEY_SKELETAL_MUSCLE_KG = "skeletal_muscle_kg"
+    const val KEY_LEAN_MASS_KG = "lean_mass_kg"
+    const val KEY_FAT_MASS_KG = "fat_mass_kg"
+    const val KEY_BMR_KCAL = "bmr_kcal"
+    const val KEY_BODY_WATER_LITERS = "body_water_liters"
     const val KEY_CALIBRATED = "calibrated"
+
+    const val PATH_BODY_FAT_SYNC = "/bpwatch/body_fat_sync"
+    const val PATH_SENSOR_TELEMETRY = "/bpwatch/sensor_telemetry"
 
     // Monitoring-config payload (PATH_MONITORING_CONFIG). Versioned with
     // KEY_CONFIG_V so the watch can ignore fields from newer phone builds.

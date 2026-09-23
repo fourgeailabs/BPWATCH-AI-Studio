@@ -97,6 +97,11 @@ fun SleepSettingsScreen(
     val snoreEnabled by viewModel.snoreEnabled.collectAsState()
     val snoreStatus by viewModel.snoreStatus.collectAsState()
     val snoreListening by viewModel.snoreListening.collectAsState()
+    val startH by viewModel.sleepStartHour.collectAsState()
+    val startM by viewModel.sleepStartMinute.collectAsState()
+    val endH by viewModel.sleepEndHour.collectAsState()
+    val endM by viewModel.sleepEndMinute.collectAsState()
+
     SettingsDetailColumn {
         SnoreCard(
             enabled = snoreEnabled,
@@ -106,8 +111,35 @@ fun SleepSettingsScreen(
             onStartNow = { viewModel.startSnoreNow() },
             onRequestMicPermission = onRequestMicPermission,
             isMicGranted = { viewModel.isMicGranted() },
+            sleepStartHour = startH,
+            sleepStartMinute = startM,
+            sleepEndHour = endH,
+            sleepEndMinute = endM,
+            onUpdateSleepSchedule = { sh, sm, eh, em ->
+                viewModel.setSleepSchedule(sh, sm, eh, em)
+            },
         )
         SleepDiagnosticsCard(onDiagnose = onDiagnoseSleep)
+    }
+}
+
+@Composable
+fun RemindersSettingsScreen(viewModel: MainViewModel) {
+    val enabled by viewModel.weightReminderEnabled.collectAsState()
+    val hour by viewModel.weightReminderHour.collectAsState()
+    val minute by viewModel.weightReminderMinute.collectAsState()
+    val daysCsv by viewModel.weightReminderDays.collectAsState()
+
+    SettingsDetailColumn {
+        RemindersCard(
+            enabled = enabled,
+            hour = hour,
+            minute = minute,
+            daysCsv = daysCsv,
+            onSave = { isEn, h, m, csv ->
+                viewModel.setWeightReminder(isEn, h, m, csv)
+            },
+        )
     }
 }
 

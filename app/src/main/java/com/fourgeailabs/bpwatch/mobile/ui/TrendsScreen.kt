@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -76,6 +77,7 @@ enum class TrendMetric(val label: String) {
     RESTING_HR("Resting HR"),
     HRV("HRV"),
     BODY_FAT("Body fat"),
+    SKIN_TEMP("Skin temp"),
     BMI("BMI"),
 }
 
@@ -83,7 +85,8 @@ enum class TrendMetric(val label: String) {
 private fun TrendMetric.isHcTrend(): Boolean = when (this) {
     TrendMetric.STEPS, TrendMetric.DISTANCE, TrendMetric.CALORIES,
     TrendMetric.WEIGHT, TrendMetric.SLEEP, TrendMetric.HYDRATION,
-    TrendMetric.RESTING_HR, TrendMetric.HRV, TrendMetric.BODY_FAT -> true
+    TrendMetric.RESTING_HR, TrendMetric.HRV, TrendMetric.BODY_FAT,
+    TrendMetric.SKIN_TEMP -> true
     else -> false
 }
 
@@ -97,6 +100,7 @@ private fun TrendMetric.toHcTrendMetric(): HcTrendMetric = when (this) {
     TrendMetric.RESTING_HR -> HcTrendMetric.RESTING_HR
     TrendMetric.HRV -> HcTrendMetric.HRV
     TrendMetric.BODY_FAT -> HcTrendMetric.BODY_FAT
+    TrendMetric.SKIN_TEMP -> HcTrendMetric.SKIN_TEMP
     else -> error("not a Health Connect trend metric: $this")
 }
 
@@ -178,6 +182,7 @@ fun TrendsScreen(
     var hcAvailable by remember { mutableStateOf(false) }
     var hcTrend by remember { mutableStateOf<List<HcTrendPoint>>(emptyList()) }
     var hcTrendLoading by remember { mutableStateOf(false) }
+    var showBodyFatReader by remember { mutableStateOf(false) }
     // v2.3.2: refreshTick re-runs the load for this trend only — the
     // per-trend refresh button bumps it.
     LaunchedEffect(range, metric, refreshTick) {
@@ -282,8 +287,35 @@ fun TrendsScreen(
             TrendMetric.SLEEP -> hcSeries("Sleep", Color(0xFF3949AB), "h", hcTrend)
             TrendMetric.HYDRATION -> hcSeries("Hydration", Color(0xFF039BE5), "L", hcTrend)
             TrendMetric.RESTING_HR -> hcSeries("Resting HR", Color(0xFFD81B60), "bpm", hcTrend)
-            TrendMetric.HRV -> hcSeries("HRV", Color(0xFF00897B), "ms", hcTrend)
+            TrendMetric.HRV -> {
+                val localHrv = readings.filter { it.timestamp in start..now && it.hrvRmssd != null }
+                    .map { ChartPoint(it.timestamp, it.hrvRmssd!!) }
+                val hcHrv = hcSeries("HRV", Color(0xFF00897B), "ms", hcTrend).firstOrNull()?.points ?: emptyList()
+                val merged = (localHrv + hcHrv).distinctBy { it.x }.sortedBy { it.x }
+                listOf(
+                    ChartSeries(
+                        label = "HRV",
+                        color = Color(0xFF00897B),
+                        unit = "ms",
+                        points = merged,
+                    )
+                )
+            }
             TrendMetric.BODY_FAT -> hcSeries("Body fat", Color(0xFF6D4C41), "%", hcTrend)
+            TrendMetric.SKIN_TEMP -> {
+                val localTemp = readings.filter { it.timestamp in start..now && it.skinTempC != null }
+                    .map { ChartPoint(it.timestamp, it.skinTempC!!) }
+                val hcTemp = hcSeries("Skin temp", Color(0xFF00ACC1), "°C", hcTrend).firstOrNull()?.points ?: emptyList()
+                val merged = (localTemp + hcTemp).distinctBy { it.x }.sortedBy { it.x }
+                listOf(
+                    ChartSeries(
+                        label = "Skin temp",
+                        color = Color(0xFF00ACC1),
+                        unit = "°C",
+                        points = merged,
+                    )
+                )
+            }
             TrendMetric.BMI -> {
                 // Computed from the loaded weight trend (lb) and the profile
                 // height. No height or no weight data means empty points,
@@ -388,18 +420,33 @@ fun TrendsScreen(
                     strokeWidth = 2.dp,
                 )
             } else {
-                OutlinedButton(onClick = {
-                    // v2.3.3: the stamp updates on tap; the HC load effect
-                    // below refreshes it again when the pull completes.
-                    lastUpdatedMs = System.currentTimeMillis()
-                    refreshTick++
-                }) {
-                    Icon(
-                        Icons.Filled.Refresh,
-                        contentDescription = null,
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text("Refresh")
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (metric == TrendMetric.BODY_FAT) {
+                        Button(
+                            onClick = { showBodyFatReader = true },
+                        ) {
+                            Icon(
+                                Icons.Filled.Accessibility,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text("Scan BIA")
+                        }
+                    }
+                    OutlinedButton(onClick = {
+                        // v2.3.3: the stamp updates on tap; the HC load effect
+                        // below refreshes it again when the pull completes.
+                        lastUpdatedMs = System.currentTimeMillis()
+                        refreshTick++
+                    }) {
+                        Icon(
+                            Icons.Filled.Refresh,
+                            contentDescription = null,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Refresh")
+                    }
                 }
             }
         }
@@ -527,6 +574,13 @@ fun TrendsScreen(
             )
         }
         Spacer(Modifier.height(4.dp))
+    }
+
+    if (showBodyFatReader) {
+        BodyFatReaderDialog(
+            viewModel = viewModel,
+            onDismiss = { showBodyFatReader = false },
+        )
     }
 }
 

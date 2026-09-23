@@ -22,6 +22,18 @@ object WatchLiveState {
     private val _liveHrAt = MutableStateFlow(0L)
     val liveHrAt: StateFlow<Long> = _liveHrAt.asStateFlow()
 
+    /** Live HRV (RMSSD in ms) from the watch sensor stream. */
+    private val _liveHrv = MutableStateFlow<Float?>(null)
+    val liveHrv: StateFlow<Float?> = _liveHrv.asStateFlow()
+
+    /** When the last live HRV tick arrived (epoch millis). */
+    private val _liveHrvAt = MutableStateFlow(0L)
+    val liveHrvAt: StateFlow<Long> = _liveHrvAt.asStateFlow()
+
+    /** Recent live HRV samples for the real-time sparkline (last ~15 samples). */
+    private val _liveHrvHistory = MutableStateFlow<List<Float>>(emptyList())
+    val liveHrvHistory: StateFlow<List<Float>> = _liveHrvHistory.asStateFlow()
+
     /** The most recent alert fired on the watch, if any. */
     private val _lastAlert = MutableStateFlow<WatchAlert?>(null)
     val lastAlert: StateFlow<WatchAlert?> = _lastAlert.asStateFlow()
@@ -48,6 +60,18 @@ object WatchLiveState {
         _liveHrAt.value = System.currentTimeMillis()
     }
 
+    fun updateLiveHrv(hrv: Float) {
+        if (hrv <= 0f) return
+        _liveHrv.value = hrv
+        _liveHrvAt.value = System.currentTimeMillis()
+        val current = _liveHrvHistory.value.toMutableList()
+        current.add(hrv)
+        if (current.size > 20) {
+            current.removeAt(0)
+        }
+        _liveHrvHistory.value = current
+    }
+
     fun postAlert(alert: WatchAlert) {
         _lastAlert.value = alert
     }
@@ -55,6 +79,12 @@ object WatchLiveState {
     /** True when the live HR value is fresh enough to show. */
     fun isLiveHrFresh(now: Long = System.currentTimeMillis()): Boolean {
         val at = _liveHrAt.value
+        return at > 0L && now - at < STALE_AFTER_MS
+    }
+
+    /** True when the live HRV value is fresh enough to show. */
+    fun isLiveHrvFresh(now: Long = System.currentTimeMillis()): Boolean {
+        val at = _liveHrvAt.value
         return at > 0L && now - at < STALE_AFTER_MS
     }
 }

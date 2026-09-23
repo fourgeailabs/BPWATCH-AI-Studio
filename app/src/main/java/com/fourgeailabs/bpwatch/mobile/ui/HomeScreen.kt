@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,7 +31,10 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
@@ -57,6 +61,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -64,6 +69,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -74,13 +80,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -122,6 +136,7 @@ fun HomeScreen(
     val readings by viewModel.readings.collectAsState()
     val dashboard by viewModel.dashboard.collectAsState()
     var showLogSheet by remember { mutableStateOf(false) }
+    var showBodyFatReader by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { viewModel.refreshDashboard() }
 
@@ -227,24 +242,40 @@ fun HomeScreen(
                             )
                         }
                         // v2.3 phone-triggered BP check: asks the watch to sample
-                        // now, over the Data Layer. v2.4.2: while measuring, the
-                        // hero shows the same beating heart wrapped in a
-                        // colour-shifting ring as the watch, not a static label.
+                        // now, over the Data Layer. v2.7.3: while measuring, the
+                        // hero shows the beating heart wrapped in a completing loading circle
+                        // that fills smoothly from 0% to 100% over the duration.
                         Spacer(Modifier.height(10.dp))
                         if (bpStatus is BpCheckState.Status.Measuring) {
+                            val measuringState = bpStatus as BpCheckState.Status.Measuring
+                            val requestTs = measuringState.requestTs
+                            var elapsedMs by remember(requestTs) { mutableLongStateOf(0L) }
+                            LaunchedEffect(requestTs) {
+                                val startTime = if (requestTs > 0L) requestTs else System.currentTimeMillis()
+                                while (true) {
+                                    elapsedMs = (System.currentTimeMillis() - startTime).coerceAtLeast(0L)
+                                    delay(50L)
+                                }
+                            }
+                            val totalDurationMs = 30_000L
+                            val progress = (elapsedMs / totalDurationMs.toFloat()).coerceIn(0f, 1f)
+                            val remainingSec = ((totalDurationMs - elapsedMs).coerceAtLeast(0L) / 1000L)
+                            val percent = (progress * 100).toInt()
+
                             val liveHr by WatchLiveState.liveHr.collectAsState()
                             val liveBpm = liveHr?.takeIf { it > 0f }?.toInt()
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                MeasuringHeart(liveHr = liveHr)
+                                MeasuringHeart(liveHr = liveHr, progress = progress)
                                 Spacer(Modifier.width(14.dp))
                                 Column {
                                     Text(
-                                        "Measuring…",
+                                        "Measuring… ${remainingSec}s (${percent}%)",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
                                     )
                                     Text(
-                                        if (liveBpm != null) "$liveBpm bpm"
+                                        if (liveBpm != null) "$liveBpm bpm · Keep arm still"
                                         else "Sit still, arm at heart level",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = Color.White.copy(alpha = 0.7f),
@@ -334,7 +365,14 @@ fun HomeScreen(
             }
 
             // --- Metric grid: real data only, nothing invented.
-            MetricGrid(dashboard = dashboard, onOpenTrends = onOpenTrends)
+            MetricGrid(
+                dashboard = dashboard,
+                onOpenTrends = onOpenTrends,
+                onOpenBodyFatReader = { showBodyFatReader = true },
+            )
+
+            // --- Real-time HRV dashboard component from watch sensor stream
+            HrvLiveCard(dashboard = dashboard, onOpenTrends = onOpenTrends)
 
             // --- Snoring card (v2.4.2): full card with last night's episodes,
             // total minutes and a 7-night chart. Tap opens the Snore screen.
@@ -355,13 +393,21 @@ fun HomeScreen(
             onDismiss = { showLogSheet = false },
         )
     }
+
+    if (showBodyFatReader) {
+        BodyFatReaderDialog(
+            viewModel = viewModel,
+            onDismiss = { showBodyFatReader = false },
+        )
+    }
 }
 
-/** Two-column grid of health tiles. Tapping a tile opens its Trends graph. */
+/** Two-column grid of health tiles. Tapping a tile opens its Trends graph or reader. */
 @Composable
 private fun MetricGrid(
     dashboard: DashboardMetrics,
     onOpenTrends: (TrendMetric) -> Unit,
+    onOpenBodyFatReader: () -> Unit = {},
 ) {
     val liveHr by WatchLiveState.liveHr.collectAsState()
     val liveHrAt by WatchLiveState.liveHrAt.collectAsState()
@@ -385,6 +431,10 @@ private fun MetricGrid(
     }
     // v2.3 stress tile: 0-100 scale, explicit in the label, never a %.
     val stressText = dashboard.stress?.let { "$it" }
+    val skinTempText = dashboard.skinTempC?.let { "%.1f°C".format(Locale.US, it) }
+    val hrvText = dashboard.hrvRmssd?.let { "${it.toInt()} ms" }
+    val bodyFatText = dashboard.bodyFatPercentage?.let { "%.1f%%".format(Locale.US, it) }
+    val restingHrText = dashboard.restingHeartRateBpm?.let { "$it bpm" }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -411,9 +461,6 @@ private fun MetricGrid(
                 onOpenTrends(TrendMetric.SLEEP)
             }
         }
-        // v2.3: hydration and discontinued tiles removed from the grid (the
-        // hydration Health Connect read and Trends metric stay). Stress takes
-        // the final slot, deep-linking into its Trends graph.
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             HealthTile(
                 Icons.Filled.Scale,
@@ -432,6 +479,42 @@ private fun MetricGrid(
                 Color(0xFF7B1FA2),
             ) {
                 onOpenTrends(TrendMetric.STRESS)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            HealthTile(
+                Icons.Filled.Thermostat,
+                "Skin temp",
+                skinTempText,
+                Color(0xFF00ACC1),
+            ) {
+                onOpenTrends(TrendMetric.SKIN_TEMP)
+            }
+            HealthTile(
+                Icons.Filled.GraphicEq,
+                "HRV (RMSSD)",
+                hrvText,
+                Color(0xFF00897B),
+            ) {
+                onOpenTrends(TrendMetric.HRV)
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            HealthTile(
+                Icons.Filled.Accessibility,
+                "Body fat",
+                bodyFatText,
+                Color(0xFF6D4C41),
+            ) {
+                onOpenBodyFatReader()
+            }
+            HealthTile(
+                Icons.Filled.FavoriteBorder,
+                "Resting HR",
+                restingHrText,
+                Color(0xFFD81B60),
+            ) {
+                onOpenTrends(TrendMetric.RESTING_HR)
             }
         }
     }
@@ -692,12 +775,17 @@ private val GoogleYellow = Color(0xFFFBBC05)
 private val GoogleGreen = Color(0xFF34A853)
 
 /**
- * v2.4.2: the watch's measuring indicator, ported to the phone — a beating
- * red heart wrapped in a colour-shifting loading ring. The beat follows the
- * live heart rate (60 bpm until the first tick arrives).
+ * v2.7.3: the phone's measuring indicator — a beating red heart wrapped in a
+ * determinate colour-shifting loading circle that completes from 0% to 100%
+ * over the measurement period (replacing indeterminate spinning). The beat follows the
+ * live heart rate.
  */
 @Composable
-private fun MeasuringHeart(liveHr: Float?, modifier: Modifier = Modifier) {
+private fun MeasuringHeart(
+    liveHr: Float?,
+    progress: Float = 0f,
+    modifier: Modifier = Modifier,
+) {
     val googleColors = remember { listOf(GoogleBlue, GoogleRed, GoogleYellow, GoogleGreen) }
     var ringColor by remember { mutableStateOf(GoogleBlue) }
     // Manual colour tween loop, mirroring the watch's EdgeProgressRing.
@@ -715,10 +803,19 @@ private fun MeasuringHeart(liveHr: Float?, modifier: Modifier = Modifier) {
     }
     val beatScale = rememberHeartbeatScale(liveHr)
     Box(modifier = modifier.size(84.dp), contentAlignment = Alignment.Center) {
+        // Inactive background track ring
         CircularProgressIndicator(
+            progress = { 1f },
+            modifier = Modifier.fillMaxSize(),
+            color = Color.White.copy(alpha = 0.18f),
+            strokeWidth = 6.dp,
+        )
+        // Determinate active progress circle completing from 0% to 100%
+        CircularProgressIndicator(
+            progress = { progress },
             modifier = Modifier.fillMaxSize(),
             color = ringColor,
-            strokeWidth = 5.dp,
+            strokeWidth = 6.dp,
         )
         Text(
             text = "♥",
@@ -905,6 +1002,263 @@ private fun KeepScreenAwakeWhileMeasuring(measuring: Boolean) {
                 if (wakeLock?.isHeld == true) wakeLock?.release()
             } catch (_: Exception) {
             }
+        }
+    }
+}
+
+/**
+ * Real-time Heart Rate Variability (HRV) dashboard component.
+ * Displays live RMSSD streaming from the watch sensor stream with
+ * autonomic recovery interpretation and a live waveform sparkline.
+ */
+@Composable
+private fun HrvLiveCard(
+    dashboard: DashboardMetrics,
+    onOpenTrends: (TrendMetric) -> Unit,
+) {
+    val liveHrv by WatchLiveState.liveHrv.collectAsState()
+    val liveHrvAt by WatchLiveState.liveHrvAt.collectAsState()
+    val liveHistory by WatchLiveState.liveHrvHistory.collectAsState()
+    val isFresh = liveHrv != null && liveHrvAt > 0L && WatchLiveState.isLiveHrvFresh()
+
+    val currentHrv = if (isFresh) liveHrv?.toDouble() else (dashboard.hrvRmssd ?: liveHrv?.toDouble())
+    val hrvVal = currentHrv?.toInt()
+
+    val statusText = when {
+        hrvVal == null -> "Awaiting watch stream"
+        hrvVal >= 60 -> "Optimal Recovery · High"
+        hrvVal >= 35 -> "Balanced · Normal"
+        else -> "Elevated Strain · Low"
+    }
+
+    val autonomicNote = when {
+        hrvVal == null -> "Real-time beat-to-beat variations streamed from PPG optical sensor."
+        hrvVal >= 60 -> "High parasympathetic tone (rest, recovery & restorative state)."
+        hrvVal >= 35 -> "Healthy autonomic equilibrium between physical strain and recovery."
+        else -> "Sympathetic dominance detected (physical exertion or elevated stress level)."
+    }
+
+    val accentColor = when {
+        hrvVal == null -> Color(0xFF00897B)
+        hrvVal >= 60 -> Color(0xFF00897B)
+        hrvVal >= 35 -> Color(0xFF00ACC1)
+        else -> Color(0xFFEA8600)
+    }
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("hrv_live_card")
+            .clickable { onOpenTrends(TrendMetric.HRV) },
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(accentColor.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.GraphicEq,
+                        contentDescription = "HRV",
+                        tint = accentColor,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp),
+                ) {
+                    Text(
+                        "Heart Rate Variability",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        if (isFresh) "Live watch sensor stream · RMSSD" else "Beat-to-beat variation · RMSSD",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (isFresh) {
+                    Surface(
+                        color = LiveGreen.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.padding(end = 4.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(LiveGreen, CircleShape),
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "LIVE",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = LiveGreen,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+                Icon(
+                    Icons.Filled.ChevronRight,
+                    contentDescription = "Open HRV Trends",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = hrvVal?.let { "$it" } ?: "--",
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "ms",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                    }
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accentColor,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+
+            // Real-time sparkline graph canvas
+            val historySamples = remember(liveHistory, hrvVal) {
+                if (liveHistory.isNotEmpty()) {
+                    liveHistory
+                } else if (hrvVal != null) {
+                    listOf(hrvVal.toFloat())
+                } else {
+                    emptyList()
+                }
+            }
+
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp),
+            ) {
+                val w = size.width
+                val h = size.height
+                val padY = 6.dp.toPx()
+                val plotH = h - padY * 2
+
+                // Baseline dashed line
+                drawLine(
+                    color = Color.Gray.copy(alpha = 0.2f),
+                    start = Offset(0f, h / 2),
+                    end = Offset(w, h / 2),
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f),
+                )
+
+                if (historySamples.size >= 2) {
+                    val minVal = (historySamples.minOrNull() ?: 20f).coerceAtMost(20f)
+                    val maxVal = (historySamples.maxOrNull() ?: 80f).coerceAtLeast(minVal + 10f)
+                    val range = (maxVal - minVal).coerceAtLeast(1f)
+
+                    val stepX = w / (historySamples.size - 1)
+                    val points = historySamples.mapIndexed { idx, v ->
+                        val norm = (v - minVal) / range
+                        Offset(idx * stepX, padY + plotH * (1f - norm))
+                    }
+
+                    val strokePath = Path().apply {
+                        moveTo(points[0].x, points[0].y)
+                        for (i in 1 until points.size) {
+                            val prev = points[i - 1]
+                            val curr = points[i]
+                            val midX = (prev.x + curr.x) / 2f
+                            cubicTo(midX, prev.y, midX, curr.y, curr.x, curr.y)
+                        }
+                    }
+
+                    val fillPath = Path().apply {
+                        addPath(strokePath)
+                        lineTo(points.last().x, h)
+                        lineTo(points.first().x, h)
+                        close()
+                    }
+
+                    drawPath(
+                        path = fillPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                accentColor.copy(alpha = 0.35f),
+                                accentColor.copy(alpha = 0.02f),
+                            ),
+                            startY = 0f,
+                            endY = h,
+                        ),
+                    )
+
+                    drawPath(
+                        path = strokePath,
+                        color = accentColor,
+                        style = Stroke(
+                            width = 2.5.dp.toPx(),
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round,
+                        ),
+                    )
+
+                    // Draw glowing pulse dot on latest sample point
+                    val lastPt = points.last()
+                    drawCircle(
+                        color = accentColor.copy(alpha = 0.3f),
+                        radius = 6.dp.toPx(),
+                        center = lastPt,
+                    )
+                    drawCircle(
+                        color = accentColor,
+                        radius = 3.5.dp.toPx(),
+                        center = lastPt,
+                    )
+                } else if (hrvVal != null) {
+                    // Smooth idle wave illustration
+                    val strokePath = Path().apply {
+                        moveTo(0f, h * 0.5f)
+                        cubicTo(w * 0.25f, h * 0.2f, w * 0.35f, h * 0.8f, w * 0.5f, h * 0.5f)
+                        cubicTo(w * 0.65f, h * 0.2f, w * 0.75f, h * 0.8f, w, h * 0.5f)
+                    }
+                    drawPath(
+                        path = strokePath,
+                        color = accentColor,
+                        style = Stroke(
+                            width = 2.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        ),
+                    )
+                }
+            }
+
+            Text(
+                text = autonomicNote,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

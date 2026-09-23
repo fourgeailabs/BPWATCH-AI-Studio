@@ -20,6 +20,9 @@ interface ReadingDao {
     @Query("SELECT * FROM readings ORDER BY timestamp DESC LIMIT 1")
     fun observeLatest(): Flow<Reading?>
 
+    @Query("SELECT * FROM readings ORDER BY timestamp DESC LIMIT 1")
+    suspend fun latestReading(): Reading?
+
     @Query("SELECT * FROM readings WHERE source = 'watch' AND heartRate IS NOT NULL ORDER BY timestamp DESC LIMIT 1")
     suspend fun latestWatchReading(): Reading?
 
@@ -51,7 +54,7 @@ interface HealthLogDao {
 
 @Database(
     entities = [Reading::class, HealthLog::class, HrSample::class, StressSample::class, WatchSteps::class, SnoreEvent::class],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -153,6 +156,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE readings ADD COLUMN skinTempC REAL")
+                db.execSQL("ALTER TABLE readings ADD COLUMN hrvRmssd REAL")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -170,6 +180,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_4_5,
                         MIGRATION_5_6,
                         MIGRATION_6_7,
+                        MIGRATION_7_8,
                     )
                     .build().also { INSTANCE = it }
             }
