@@ -55,7 +55,7 @@ val bundleWearApk = tasks.register<Copy>("bundleWearApk") {
   dependsOn(":wear:assembleDebug")
   val wearDebugApk = rootProject.file("wear/build/outputs/apk/debug/wear-debug.apk")
   val fallbackApk = rootProject.file("releases/BPWatch-Wear-GalaxyWatch-debug.apk")
-  from(if (wearDebugApk.exists()) wearDebugApk else fallbackApk)
+  from(provider { if (wearDebugApk.exists()) wearDebugApk else fallbackApk })
   into(file("src/main/assets"))
   rename { "bpwatch-wear.apk" }
 }
