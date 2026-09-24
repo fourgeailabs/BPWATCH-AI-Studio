@@ -209,7 +209,7 @@ class WatchListenerService : WearableListenerService() {
             val offeredCode = map.getLong(Link.KEY_APK_VERSION_CODE)
             offeredName = map.getString(Link.KEY_APK_VERSION_NAME).orEmpty()
             val (installedCode, _) = DataLayer.installedVersion(this)
-            needsUpdate = offeredCode > installedCode
+            needsUpdate = offeredCode >= installedCode
             Log.i(TAG, "APK begin: offered $offeredName ($offeredCode), " +
                 "installed $installedCode, needsUpdate=$needsUpdate")
         } catch (e: Exception) {
@@ -266,7 +266,7 @@ class WatchListenerService : WearableListenerService() {
             val asset: Asset = map.getAsset(Link.KEY_APK_ASSET)
                 ?: return result("failed", "Update arrived without its file.")
             val (installedCode, _) = DataLayer.installedVersion(this)
-            if (offeredCode <= installedCode) {
+            if (offeredCode < installedCode) {
                 Log.i(TAG, "APK update $offeredName not newer than installed; skipping")
                 return result("up_to_date", "Watch is already up to date.")
             }
