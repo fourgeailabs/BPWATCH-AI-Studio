@@ -18,7 +18,19 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.07.04 (Current)
+### v2.07.06 (Current)
+- **Settings Home Card**: Renamed the settings customization section card to **Home** with a dedicated home icon (`Icons.Filled.Home`).
+- **Home Customization View**: Tapping the **Home** card in Settings opens the customization interface where users can choose which cards appear on the Home screen and arrange their exact order.
+- **System Back & Back Navigation Header**: Added a top Back arrow button and system `BackHandler` to return seamlessly to Settings.
+
+### v2.07.05
+- **Opened Trend Detail View**: Tapping any trend card now cleanly opens its dedicated full-screen detail view with independent scroll state, ensuring zero scroll jumping and seamless navigation.
+- **Android Back Navigation & Top Back Arrow**: Pressing the Android system back button/gesture or tapping the top Back arrow immediately returns the user to the all-trends menu.
+- **Removed Duplicate Trend List**: Eliminated the duplicate "Other Trends" card list from the bottom of opened trend screens, preventing any perception of card rearrangement.
+- **Clinical Guidelines & Interpretation Cards**: Added comprehensive clinical guideline cards (AHA Blood Pressure classifications, Heart Rate zones, HRV RMSSD baselines, BIA ranges, Sleep duration targets, etc.) to every open trend.
+- **Recorded History Log Table**: Added a timestamped data point log to every open trend displaying up to 15 recent recorded entries with exact values and units.
+
+### v2.07.04
 - **Interactive Trends Menu with Clickable Trend Cards**: Replaced the horizontal filter chips slider with a responsive grid of interactive cards representing all 14 wellness metrics (Blood Pressure, Heart Rate, Resting HR, HRV, Stress, Sleep, Steps, Distance, Calories, Weight, Body Fat, Skin Temp, Hydration, BMI).
 - **Most Current Data on Every Trend Card**: Every trend card displays its latest recorded measurement value, units, status badge, and thematic accent icon directly on the card face.
 - **Dedicated Trend Detail Views**: Tapping any card opens its detailed historical chart with multi-range time selectors (Hour, Day, Week, Month, Year, All), statistical aggregates (Min, Max, Average), and one-tap switching to other trends.

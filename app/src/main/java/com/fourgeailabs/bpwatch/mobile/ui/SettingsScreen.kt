@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.NewReleases
@@ -100,7 +101,7 @@ fun SettingsScreen(
         Quad(Icons.Filled.MonitorHeart, "Monitoring & alerts", "Check schedule, thresholds, alerts", onOpenMonitoring),
         Quad(Icons.Filled.Bedtime, "Sleep", "Snore detection, sleep times and diagnostics", onOpenSleep),
         Quad(Icons.Filled.Notifications, "Reminders", "Daily and custom-day weight check alerts", onOpenReminders),
-        Quad(Icons.Filled.GridOn, "Home layout", "Choose visible cards and arrange home screen order", onOpenHomeLayout),
+        Quad(Icons.Filled.Home, "Home", "Choose visible cards and arrange home screen order", onOpenHomeLayout),
         Quad(Icons.Filled.Tune, "Calibration", "Cuff readings and model status", onOpenCalibration),
         Quad(Icons.Filled.Info, "About", "Version, credits and links", onOpenAbout),
         Quad(Icons.Filled.NewReleases, "What's new", "Release history, newest first", onOpenChangelog),

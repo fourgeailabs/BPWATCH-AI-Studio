@@ -20,6 +20,28 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.07.06",
+        versionCode = 48,
+        date = "2026-09-23",
+        notes = listOf(
+            "Renamed settings customization card to Home with a dedicated home icon",
+            "Added BackHandler and top back navigation header to Home Customization screen",
+            "Enhanced interactive card reordering and visibility switches for custom home screen layout",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.05",
+        versionCode = 47,
+        date = "2026-09-23",
+        notes = listOf(
+            "Opened trend detail view: tapping any trend card now cleanly opens its dedicated full-screen detail view with independent scroll state and zero-scroll jump",
+            "Added Android system BackHandler and top Back arrow to immediately return to the all-trends menu from any opened trend",
+            "Removed duplicate bottom trend list from detail view to eliminate card rearrangement perception",
+            "Added Metric Guidelines and Clinical Reference Card to every open trend with health target ranges and AHA information",
+            "Added Recorded History Log table listing individual timestamped data points for each open trend",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.04",
         versionCode = 46,
         date = "2026-09-23",

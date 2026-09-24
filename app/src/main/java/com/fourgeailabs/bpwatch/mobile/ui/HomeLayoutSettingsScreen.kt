@@ -1,5 +1,6 @@
 package com.fourgeailabs.bpwatch.mobile.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DashboardCustomize
@@ -55,10 +57,17 @@ import com.fourgeailabs.bpwatch.mobile.prefs.HomeLayoutManager
  * and the exact order they are displayed in.
  */
 @Composable
-fun HomeLayoutSettingsScreen(viewModel: MainViewModel) {
+fun HomeLayoutSettingsScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit = {},
+) {
     val context = LocalContext.current
     val cardOrder by HomeLayoutManager.cardOrder.collectAsState()
     val cardVisibility by HomeLayoutManager.cardVisibility.collectAsState()
+
+    BackHandler(enabled = true) {
+        onBack()
+    }
 
     Column(
         modifier = Modifier
@@ -68,6 +77,36 @@ fun HomeLayoutSettingsScreen(viewModel: MainViewModel) {
             .testTag("home_layout_settings_screen"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        // Back navigation bar
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.size(44.dp),
+            ) {
+                Icon(
+                    Icons.Filled.ArrowBack,
+                    contentDescription = "Back to Settings",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Home Customization",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Reorder cards & customize visible home elements",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
         // Explanatory card
         ElevatedCard(
             modifier = Modifier.fillMaxWidth(),

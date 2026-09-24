@@ -514,7 +514,7 @@ private fun BpWatchPhoneApp(
                 // v2.7.0: reminders settings.
                 16 -> RemindersSettingsScreen(viewModel)
                 // v2.7.1: home layout customization.
-                17 -> HomeLayoutSettingsScreen(viewModel)
+                17 -> HomeLayoutSettingsScreen(viewModel, onBack = { goBack() })
             }
         }
     }

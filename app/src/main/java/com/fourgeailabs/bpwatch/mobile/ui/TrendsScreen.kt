@@ -1,5 +1,6 @@
 package com.fourgeailabs.bpwatch.mobile.ui
 
+import androidx.activity.compose.BackHandler
 import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,6 +44,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -604,19 +607,19 @@ fun TrendsScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        val currentMetric = selectedMetric
-        if (currentMetric == null) {
-            // =================================================================
-            // TRENDS OVERVIEW: All trends displayed as clickable cards with
-            // the most current data on each card.
-            // =================================================================
+    val currentMetric = selectedMetric
+    if (currentMetric == null) {
+        // =================================================================
+        // TRENDS OVERVIEW: All trends displayed as clickable cards with
+        // the most current data on each card.
+        // =================================================================
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             Text(
                 "Health Trends",
                 style = MaterialTheme.typography.headlineMedium,
@@ -644,12 +647,24 @@ fun TrendsScreen(
                     onClick = { selectedMetric = m },
                 )
             }
-        } else {
-            // =================================================================
-            // TREND DETAIL: Detail view for the selected trend.
-            // Includes back navigation, current data hero, range selector,
-            // Canvas chart, and bottom list of other trends.
-            // =================================================================
+            Spacer(Modifier.height(16.dp))
+        }
+    } else {
+        // =================================================================
+        // TREND DETAIL: Dedicated detail view for the selected trend.
+        // Handled as its own destination screen with independent scroll state.
+        // =================================================================
+        BackHandler(enabled = true) {
+            selectedMetric = null
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -660,19 +675,19 @@ fun TrendsScreen(
                 ) {
                     Icon(
                         Icons.Filled.ArrowBack,
-                        contentDescription = "All trends",
+                        contentDescription = "Back to all trends",
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
                 Spacer(Modifier.width(8.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        currentMetric.label,
+                        "${currentMetric.label} Trend",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        "Historical trend & analytics",
+                        "Historical data, charts & analytics",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -904,34 +919,14 @@ fun TrendsScreen(
                 }
             }
 
-            // Switch to Other Trends section
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Other Trends",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            val otherMetrics = remember(currentMetric) {
-                TrendMetric.entries.filter { it != currentMetric }
-            }
-            otherMetrics.forEach { m ->
-                val cardData = resolveTrendCardData(
-                    metric = m,
-                    dashboard = dashboard,
-                    readings = readings,
-                    healthLogs = healthLogs,
-                    biaResult = biaResult,
-                    liveHr = liveHr,
-                    liveHrAt = liveHrAt,
-                    liveHrv = liveHrv,
-                )
-                TrendOverviewCard(
-                    cardData = cardData,
-                    onClick = { selectedMetric = m },
-                )
-            }
+            // Clinical Guidelines & Interpretation Card for the open metric
+            MetricGuidelineCard(metric = currentMetric)
+
+            // History Log of recorded data points
+            TrendDataPointsLog(series = series)
+
+            Spacer(Modifier.height(16.dp))
         }
-        Spacer(Modifier.height(16.dp))
     }
 
     if (showBodyFatReader) {
@@ -1214,5 +1209,209 @@ private fun downsample(points: List<ChartPoint>, max: Int = 240): List<ChartPoin
             x = slice.map { it.x }.average().toLong(),
             y = slice.map { it.y }.average().toFloat(),
         )
+    }
+}
+
+/**
+ * Guideline and clinical reference card for the opened trend.
+ */
+@Composable
+private fun MetricGuidelineCard(metric: TrendMetric) {
+    val (title, description, ranges) = when (metric) {
+        TrendMetric.BLOOD_PRESSURE -> Triple(
+            "Blood Pressure Guidelines (AHA/ACC)",
+            "Blood pressure is recorded as systolic over diastolic pressure (mmHg). Track consistently to monitor cardiovascular health.",
+            listOf(
+                "Normal: Systolic < 120 and Diastolic < 80 mmHg",
+                "Elevated: Systolic 120-129 and Diastolic < 80 mmHg",
+                "Hypertension Stage 1: Systolic 130-139 or Diastolic 80-89 mmHg",
+                "Hypertension Stage 2: Systolic ≥ 140 or Diastolic ≥ 90 mmHg"
+            )
+        )
+        TrendMetric.HEART_RATE -> Triple(
+            "Heart Rate Information",
+            "Heart rate measures beats per minute (bpm). It fluctuates naturally with activity, posture, stress, and autonomic state.",
+            listOf(
+                "Normal Resting (Adults): 60 – 100 bpm",
+                "Athletic Baseline: 40 – 60 bpm",
+                "Tachycardia (Resting): > 100 bpm",
+                "Bradycardia (Resting non-athletic): < 60 bpm"
+            )
+        )
+        TrendMetric.RESTING_HR -> Triple(
+            "Resting Heart Rate (RHR)",
+            "Measured during quiet rest or sleep. RHR is a key indicator of cardiovascular fitness and autonomic recovery.",
+            listOf(
+                "Excellent: < 60 bpm",
+                "Good: 60 – 69 bpm",
+                "Average: 70 – 79 bpm",
+                "Higher: ≥ 80 bpm"
+            )
+        )
+        TrendMetric.HRV -> Triple(
+            "Heart Rate Variability (RMSSD)",
+            "RMSSD measures variation between consecutive heartbeats in milliseconds. Higher values generally indicate resilient parasympathetic tone and recovery.",
+            listOf(
+                "Higher RMSSD: Indicates healthy autonomic balance and recovery",
+                "Lower RMSSD: May reflect physical fatigue, illness, or acute stress",
+                "Personal Baseline: HRV is highly individual; compare against your own average"
+            )
+        )
+        TrendMetric.STRESS -> Triple(
+            "Autonomic Stress Index",
+            "Evaluates autonomic nervous system balance derived from pulse wave analysis and pulse rate dynamics during checkups.",
+            listOf(
+                "Relaxed: 0 – 29 (Parasympathetic dominance)",
+                "Moderate: 30 – 59 (Balanced physiological activity)",
+                "Elevated: 60 – 79 (Sympathetic activation / exertion)",
+                "High: 80 – 100 (High physiological or mental tension)"
+            )
+        )
+        TrendMetric.SLEEP -> Triple(
+            "Sleep Duration & Quality",
+            "Monitors total sleep time, stages, and restfulness synced from Health Connect and Samsung Health sleep tracking.",
+            listOf(
+                "Optimal (Adults): 7 – 9 hours per night",
+                "Short Sleep: < 6 hours (associated with elevated BP risk)",
+                "Consistency: Regular sleep/wake schedules support healthy circadian rhythm"
+            )
+        )
+        TrendMetric.BODY_FAT -> Triple(
+            "Body Composition (BIA)",
+            "Bioelectrical Impedance Analysis measured using the watch dual side-button electrodes with both fingers touching.",
+            listOf(
+                "Athletic: Men 6-13% · Women 14-20%",
+                "Fitness: Men 14-17% · Women 21-24%",
+                "Acceptable: Men 18-24% · Women 25-31%",
+                "Measurement tip: Keep fingers on electrodes for the full 15s scan"
+            )
+        )
+        TrendMetric.WEIGHT -> Triple(
+            "Weight Tracking",
+            "Body weight trend over time. Day-to-day fluctuations reflect hydration, glycogen storage, and sodium balance.",
+            listOf(
+                "Tracking: Log consistently at the same time (e.g. morning after waking)",
+                "Trends: Focus on the weekly moving average rather than single-day spikes"
+            )
+        )
+        TrendMetric.BMI -> Triple(
+            "Body Mass Index (BMI)",
+            "Screening metric calculated from height and weight (kg/m²).",
+            listOf(
+                "Underweight: < 18.5",
+                "Normal weight: 18.5 – 24.9",
+                "Overweight: 25.0 – 29.9",
+                "Obese: ≥ 30.0"
+            )
+        )
+        TrendMetric.STEPS -> Triple(
+            "Daily Step Activity",
+            "Step count recorded by the watch accelerometer and pedometer sensor throughout the day.",
+            listOf(
+                "Active Target: 8,000 – 10,000 steps/day",
+                "Moderate: 5,000 – 7,999 steps/day",
+                "Sedentary: < 5,000 steps/day"
+            )
+        )
+        TrendMetric.DISTANCE -> Triple(
+            "Distance Traveled",
+            "Calculated from pedometer cadence and stride length metrics across active movement.",
+            listOf(
+                "Daily Target: 3.0 – 5.0 miles (5 – 8 km)",
+                "Encourages steady aerobic conditioning"
+            )
+        )
+        TrendMetric.CALORIES -> Triple(
+            "Active Calories (kcal)",
+            "Active energy expenditure estimated from heart rate, movement intensity, and user body profile.",
+            listOf(
+                "Active Burn: Represents energy burned through exercise and physical movement",
+                "Total Burn: Includes Basal Metabolic Rate (BMR) plus active burn"
+            )
+        )
+        TrendMetric.HYDRATION -> Triple(
+            "Fluid Consumption",
+            "Daily water and fluid intake logged or synced with Health Connect.",
+            listOf(
+                "General Guideline: 2.0 – 3.0 Liters daily (68 – 100 fl oz)",
+                "Adjust for exercise duration, ambient heat, and sweating"
+            )
+        )
+        TrendMetric.SKIN_TEMP -> Triple(
+            "Wrist Optical Skin Temperature",
+            "Monitors peripheral skin temperature relative to baseline. Valuable for tracking circadian rhythm, sleep environments, and recovery.",
+            listOf(
+                "Nighttime Shift: Skin temperature typically increases slightly during deep sleep",
+                "Environmental: Subject to ambient temperature and watch band tightness"
+            )
+        )
+    }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                ranges.forEach { r ->
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("•", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(r, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Log card showing recorded individual data points for the open trend.
+ */
+@Composable
+private fun TrendDataPointsLog(series: List<ChartSeries>) {
+    val allPoints = remember(series) {
+        series.flatMap { s -> s.points.map { pt -> Triple(pt.x, pt.y, s.unit) } }
+            .sortedByDescending { it.first }
+            .take(15)
+    }
+    if (allPoints.isEmpty()) return
+
+    val formatter = remember {
+        DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US).withZone(ZoneId.systemDefault())
+    }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "Recorded History (${allPoints.size})",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            allPoints.forEach { (ts, value, unit) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        formatter.format(Instant.ofEpochMilli(ts)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "${if (value % 1 == 0f) value.toInt().toString() else "%.1f".format(Locale.US, value)} $unit",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            }
+        }
     }
 }
