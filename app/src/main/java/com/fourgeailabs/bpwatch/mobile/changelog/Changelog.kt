@@ -20,6 +20,16 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.07.12",
+        versionCode = 54,
+        date = "2026-09-23",
+        notes = listOf(
+            "Updated bundled watch APK inside the phone companion app to Wear OS v2.5.0 (36)",
+            "Ensured one-tap watch update seamlessly beams v2.5.0 (36) to Galaxy Watch with zero version conflicts",
+            "Added automatic screen wake and auto-launch to Watch app when remote BIA body fat scans or BP checks are triggered from phone",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.11",
         versionCode = 53,
         date = "2026-09-23",
