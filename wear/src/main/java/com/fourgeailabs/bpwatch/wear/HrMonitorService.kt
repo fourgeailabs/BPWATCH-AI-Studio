@@ -237,11 +237,17 @@ class HrMonitorService : Service() {
                 } catch (_: Exception) {
                     -1
                 }
+                val hrvRmssd = try {
+                    StressEstimator.calculateHrvRmssd(samples)
+                } catch (_: Exception) {
+                    -1f
+                }
                 DataLayer.sendHrReading(
-                    applicationContext,
-                    avg,
-                    System.currentTimeMillis(),
-                    stress,
+                    context = applicationContext,
+                    heartRate = avg,
+                    timestamp = System.currentTimeMillis(),
+                    stress = stress,
+                    hrvRmssd = hrvRmssd,
                 )
             } catch (_: Exception) {
             } finally {

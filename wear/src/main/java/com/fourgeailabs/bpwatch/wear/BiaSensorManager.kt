@@ -262,9 +262,9 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
             48.0
         }
 
-        // Standard user reference: 175 cm, 75 kg (or calibrated profile)
-        val heightCm = 175.0
-        val weightKg = 75.0
+        // Fetch user's calibrated body profile from WatchSettings (synced from phone profile)
+        val heightCm = WatchSettings.getUserHeight(context).toDouble().coerceIn(100.0, 230.0)
+        val weightKg = WatchSettings.getUserWeight(context).toDouble().coerceIn(30.0, 220.0)
 
         // Bioelectrical Impedance Index: Height^2 / Resistance
         val impedanceIndex = (heightCm * heightCm) / avgResistance

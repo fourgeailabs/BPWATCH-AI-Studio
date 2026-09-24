@@ -21,12 +21,16 @@ object DataLayer {
         bodyPosition: Int = Link.Posture.SITTING_DOWN,
         activity: String = Link.ActivityState.SITTING,
         measurementLocation: Int = WatchSettings.getMeasurementLocation(context),
+        hrvRmssd: Float = -1f,
     ): Boolean {
         return try {
             val payload = DataMap().apply {
                 putFloat(Link.KEY_HEART_RATE, heartRate)
                 putLong(Link.KEY_TIMESTAMP, timestamp)
                 putInt(Link.KEY_STRESS, stress)
+                if (hrvRmssd > 0f) {
+                    putFloat(Link.KEY_HRV_RMSSD, hrvRmssd)
+                }
                 putInt(Link.KEY_POSTURE, bodyPosition)
                 putString(Link.KEY_ACTIVITY, activity)
                 putInt(Link.KEY_WRIST_LOCATION, measurementLocation)

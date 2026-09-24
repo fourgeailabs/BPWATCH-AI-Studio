@@ -20,6 +20,17 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.07.11",
+        versionCode = 53,
+        date = "2026-09-23",
+        notes = listOf(
+            "Enhanced Sleep, Body Fat (BIA), and Heart Rate Variability (HRV) metrics processing and sync engine",
+            "Added dynamic HRV RMSSD calculation from PPG heart rate beat intervals when standalone HRV records are absent in Health Connect",
+            "Added dynamic user profile (Height & Weight) sync from phone companion to Wear OS watch for personalized BIA body fat composition calculations",
+            "Expanded +Log sheet on mobile home screen with direct logging for Sleep, Body Fat %, and HRV RMSSD with Health Connect integration",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.10",
         versionCode = 52,
         date = "2026-09-23",

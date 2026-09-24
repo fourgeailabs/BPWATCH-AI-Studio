@@ -363,11 +363,40 @@ class HealthConnectManager(private val context: Context) {
         }
 
         // Latest HRV RMSSD (ms) — 30 day window fallback for periodic measurements
-        val hrvRmssd = try {
+        var hrvRmssd = try {
             readAllRecords<HeartRateVariabilityRmssdRecord>(TimeRangeFilter.between(now.minus(30, ChronoUnit.DAYS), now))
                 .maxByOrNull { it.time }?.heartRateVariabilityMillis
         } catch (_: Exception) {
             null
+        }
+
+        if (hrvRmssd == null || hrvRmssd <= 0.0) {
+            try {
+                val hrRecords = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = HeartRateRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(now.minus(7, ChronoUnit.DAYS), now),
+                    )
+                ).records
+                val samples = hrRecords.flatMap { it.samples }.sortedBy { it.time }
+                if (samples.size >= 2) {
+                    val rrs = samples.map { 60000.0 / it.beatsPerMinute.toDouble().coerceAtLeast(30.0) }
+                    var sumSqDiff = 0.0
+                    var count = 0
+                    for (i in 0 until rrs.size - 1) {
+                        val diff = rrs[i + 1] - rrs[i]
+                        sumSqDiff += diff * diff
+                        count++
+                    }
+                    if (count > 0) {
+                        val computed = Math.sqrt(sumSqDiff / count)
+                        if (computed.isFinite() && computed in 10.0..250.0) {
+                            hrvRmssd = computed
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+            }
         }
 
         // Latest Resting HR (bpm)
@@ -1046,6 +1075,23 @@ class HealthConnectManager(private val context: Context) {
                     time = time,
                     zoneOffset = zoneOffset,
                     heartRateVariabilityMillis = rmssdMs,
+                )
+            )
+        )
+    }
+
+    /** Logs a sleep session entry to Health Connect. Throws on failure. */
+    suspend fun writeSleepSession(startTime: Instant, endTime: Instant, title: String = "Sleep") {
+        val startZone = ZoneId.systemDefault().rules.getOffset(startTime)
+        val endZone = ZoneId.systemDefault().rules.getOffset(endTime)
+        client.insertRecords(
+            listOf(
+                SleepSessionRecord(
+                    startTime = startTime,
+                    startZoneOffset = startZone,
+                    endTime = endTime,
+                    endZoneOffset = endZone,
+                    title = title,
                 )
             )
         )

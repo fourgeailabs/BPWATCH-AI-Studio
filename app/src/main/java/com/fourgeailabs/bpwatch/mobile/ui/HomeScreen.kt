@@ -593,7 +593,7 @@ private fun RowScope.HealthTile(
 // "+ Log" bottom sheet: weight, hydration, food -> Health Connect + Room.
 // ------------------------------------------------------------------
 
-private enum class LogMode { WEIGHT, HYDRATION, FOOD }
+private enum class LogMode { WEIGHT, HYDRATION, FOOD, BODY_FAT, SLEEP, HRV }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -628,6 +628,9 @@ private fun LogSheet(viewModel: MainViewModel, onDismiss: () -> Unit) {
                         LogMode.WEIGHT -> "Log weight"
                         LogMode.HYDRATION -> "Log hydration"
                         LogMode.FOOD -> "Log food"
+                        LogMode.BODY_FAT -> "Log body fat"
+                        LogMode.SLEEP -> "Log sleep"
+                        LogMode.HRV -> "Log HRV"
                     },
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
@@ -653,6 +656,15 @@ private fun LogSheet(viewModel: MainViewModel, onDismiss: () -> Unit) {
                     }
                     LogChoiceRow(Icons.Filled.Restaurant, "Food", "Calories and meal") {
                         mode = LogMode.FOOD
+                    }
+                    LogChoiceRow(Icons.Filled.Accessibility, "Body Fat", "Body fat percentage (%)") {
+                        mode = LogMode.BODY_FAT
+                    }
+                    LogChoiceRow(Icons.Filled.Bedtime, "Sleep", "Sleep duration in hours") {
+                        mode = LogMode.SLEEP
+                    }
+                    LogChoiceRow(Icons.Filled.FavoriteBorder, "HRV", "Heart rate variability (RMSSD ms)") {
+                        mode = LogMode.HRV
                     }
                 }
                 LogMode.WEIGHT -> {
@@ -729,6 +741,90 @@ private fun LogSheet(viewModel: MainViewModel, onDismiss: () -> Unit) {
                             viewModel.logFoodKcal(kcal!!, meal) { hcOk -> saved("Food logged", hcOk) }
                         },
                         enabled = kcal != null && kcal > 0,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Save") }
+                }
+                LogMode.BODY_FAT -> {
+                    var text by remember { mutableStateOf("") }
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Body Fat (%)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("12.5", "18.0", "22.5", "28.0").forEach { quick ->
+                            FilterChip(
+                                selected = text == quick,
+                                onClick = { text = quick },
+                                label = { Text("$quick%") },
+                            )
+                        }
+                    }
+                    val pct = text.toDoubleOrNull()
+                    Button(
+                        onClick = {
+                            viewModel.logBodyFatPct(pct!!) { hcOk -> saved("Body Fat logged", hcOk) }
+                        },
+                        enabled = pct != null && pct in 3.0..60.0,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Save") }
+                }
+                LogMode.SLEEP -> {
+                    var text by remember { mutableStateOf("") }
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Sleep Duration (hours)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("6.0", "7.5", "8.0", "9.0").forEach { quick ->
+                            FilterChip(
+                                selected = text == quick,
+                                onClick = { text = quick },
+                                label = { Text("${quick}h") },
+                            )
+                        }
+                    }
+                    val hours = text.toDoubleOrNull()
+                    Button(
+                        onClick = {
+                            viewModel.logSleepHours(hours!!) { hcOk -> saved("Sleep logged", hcOk) }
+                        },
+                        enabled = hours != null && hours in 0.5..24.0,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Save") }
+                }
+                LogMode.HRV -> {
+                    var text by remember { mutableStateOf("") }
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("HRV RMSSD (ms)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("35", "50", "65", "80").forEach { quick ->
+                            FilterChip(
+                                selected = text == quick,
+                                onClick = { text = quick },
+                                label = { Text("${quick} ms") },
+                            )
+                        }
+                    }
+                    val ms = text.toDoubleOrNull()
+                    Button(
+                        onClick = {
+                            viewModel.logHrvRmssd(ms!!) { hcOk -> saved("HRV logged", hcOk) }
+                        },
+                        enabled = ms != null && ms in 5.0..300.0,
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("Save") }
                 }

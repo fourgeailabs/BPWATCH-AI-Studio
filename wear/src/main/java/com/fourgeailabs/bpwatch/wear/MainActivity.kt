@@ -95,6 +95,12 @@ class MainActivity : ComponentActivity() {
         ensureBodySensorPermission()
         ensureActivityRecognitionPermission()
         ensureNotificationPermission()
+        val initialAction = intent?.getStringExtra("action")
+        if (initialAction == "bia_scan") {
+            WatchState.triggerBia()
+        } else if (initialAction == "measure") {
+            WatchState.triggerMeasure()
+        }
         setContent {
             MaterialTheme {
                 BpWatchApp(hrMonitor) { ensureBodySensorPermission() }
@@ -178,8 +184,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
-        if (intent.getStringExtra("action") == "bia_scan") {
+        val act = intent.getStringExtra("action")
+        if (act == "bia_scan") {
             WatchState.triggerBia()
+        } else if (act == "measure") {
+            WatchState.triggerMeasure()
         }
     }
 }
@@ -236,10 +245,17 @@ private fun BpWatchApp(
     val liveImpedance by biaManager.liveImpedanceOhms.collectAsState()
     val biaResult by biaManager.lastResult.collectAsState()
     val biaTrigger by WatchState.biaTrigger.collectAsState()
+    val measureTrigger by WatchState.measureTrigger.collectAsState()
 
     LaunchedEffect(biaTrigger) {
         if (biaTrigger > 0L) {
             uiState = UiState.BIA_SCAN
+        }
+    }
+
+    LaunchedEffect(measureTrigger) {
+        if (measureTrigger > 0L) {
+            uiState = UiState.MEASURING
         }
     }
 

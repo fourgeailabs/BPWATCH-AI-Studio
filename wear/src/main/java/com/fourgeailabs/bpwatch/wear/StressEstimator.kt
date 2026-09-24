@@ -41,6 +41,20 @@ object StressEstimator {
         return (elevationScore + variabilityScore).toInt().coerceIn(0, 100)
     }
 
+    /** Calculates HRV RMSSD (ms) from beat-to-beat interval differences. */
+    fun calculateHrvRmssd(samples: List<Float>): Float {
+        val valid = samples.filter { it in 25f..250f }
+        if (valid.size < 2) return -1f
+        val rrs = valid.map { 60000.0 / it.toDouble() }
+        var sumSqDiff = 0.0
+        for (i in 0 until rrs.size - 1) {
+            val diff = rrs[i + 1] - rrs[i]
+            sumSqDiff += diff * diff
+        }
+        val rmssd = Math.sqrt(sumSqDiff / (rrs.size - 1)).toFloat()
+        return if (rmssd.isFinite() && rmssd > 0f) rmssd.coerceIn(10f, 250f) else -1f
+    }
+
     /** Human label for a stress score. */
     fun label(score: Int): String = when {
         score < 0 -> "—"

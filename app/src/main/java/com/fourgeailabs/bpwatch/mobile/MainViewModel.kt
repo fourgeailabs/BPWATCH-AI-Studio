@@ -21,6 +21,7 @@ import com.fourgeailabs.bpwatch.mobile.healthconnect.HcTrendMetric
 import com.fourgeailabs.bpwatch.mobile.healthconnect.HcTrendPoint
 import com.fourgeailabs.bpwatch.mobile.healthconnect.SleepDiagnosis
 import com.fourgeailabs.bpwatch.mobile.healthconnect.TodayMetrics
+import java.time.temporal.ChronoUnit
 import com.fourgeailabs.bpwatch.mobile.monitoring.MonitoringConfig
 import com.fourgeailabs.bpwatch.mobile.monitoring.MonitoringPrefs
 import com.fourgeailabs.bpwatch.mobile.profile.ProfileStore
@@ -454,20 +455,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         val skinTempC = t?.skinTempDeltaC 
-            ?: healthLogs.value.firstOrNull { it.kind == "skin_temp" }?.value
+            ?: healthLogs.value.filter { it.kind == "skin_temp" }.maxByOrNull { it.timestamp }?.value
             ?: latest?.skinTempC?.toDouble()
         val hrvRmssd = t?.hrvRmssd 
-            ?: healthLogs.value.firstOrNull { it.kind == "hrv" }?.value
+            ?: healthLogs.value.filter { it.kind == "hrv" }.maxByOrNull { it.timestamp }?.value
             ?: latest?.hrvRmssd?.toDouble()
         val restingHr = t?.restingHr?.toInt() 
-            ?: healthLogs.value.firstOrNull { it.kind == "resting_hr" }?.value?.toInt()
+            ?: healthLogs.value.filter { it.kind == "resting_hr" }.maxByOrNull { it.timestamp }?.value?.toInt()
             ?: latest?.heartRate?.toInt()
         val bodyFat = t?.bodyFatPct 
-            ?: healthLogs.value.firstOrNull { it.kind == "body_fat" }?.value
+            ?: healthLogs.value.filter { it.kind == "body_fat" || it.kind == "bodyFat" }.maxByOrNull { it.timestamp }?.value
         val sleepHours = t?.sleepHours
-            ?: healthLogs.value.firstOrNull { it.kind == "sleep" }?.value
+            ?: healthLogs.value.filter { it.kind == "sleep" }.maxByOrNull { it.timestamp }?.value
         val hydrationMl = t?.hydrationLiters?.let { it * 1000.0 }
-            ?: healthLogs.value.firstOrNull { it.kind == HealthLogKind.HYDRATION }?.value
+            ?: healthLogs.value.filter { it.kind == HealthLogKind.HYDRATION }.maxByOrNull { it.timestamp }?.value
         val weightLb = weightKg?.let { it * 2.20462 }
 
         _dashboard.value = DashboardMetrics(
@@ -549,6 +550,73 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     kind = HealthLogKind.FOOD,
                     value = kcal,
                     label = "${trimNum(kcal)} kcal · ${mealName(mealType)}",
+                )
+            )
+            refreshDashboard()
+            onDone(hcOk)
+        }
+    }
+
+    /** Logs Body Fat percentage (%): Health Connect first, Room always. */
+    fun logBodyFatPct(pct: Double, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val now = Instant.now()
+            val hcOk = try {
+                hc.writeBodyFat(pct, now); true
+            } catch (_: Exception) {
+                false
+            }
+            repo.addHealthLog(
+                HealthLog(
+                    timestamp = now.toEpochMilli(),
+                    kind = "body_fat",
+                    value = pct,
+                    label = "${trimNum(pct)}% Body Fat",
+                )
+            )
+            refreshDashboard()
+            onDone(hcOk)
+        }
+    }
+
+    /** Logs Sleep (hours): Health Connect first, Room always. */
+    fun logSleepHours(hours: Double, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val end = Instant.now()
+            val start = end.minus((hours * 3600.0).toLong(), ChronoUnit.SECONDS)
+            val hcOk = try {
+                hc.writeSleepSession(start, end, "Sleep Log"); true
+            } catch (_: Exception) {
+                false
+            }
+            repo.addHealthLog(
+                HealthLog(
+                    timestamp = end.toEpochMilli(),
+                    kind = "sleep",
+                    value = hours,
+                    label = "${trimNum(hours)} hrs Sleep",
+                )
+            )
+            refreshDashboard()
+            onDone(hcOk)
+        }
+    }
+
+    /** Logs HRV (RMSSD ms): Health Connect first, Room always. */
+    fun logHrvRmssd(ms: Double, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            val now = Instant.now()
+            val hcOk = try {
+                hc.writeHeartRateVariability(ms, now); true
+            } catch (_: Exception) {
+                false
+            }
+            repo.addHealthLog(
+                HealthLog(
+                    timestamp = now.toEpochMilli(),
+                    kind = "hrv",
+                    value = ms,
+                    label = "HRV: ${trimNum(ms)} ms",
                 )
             )
             refreshDashboard()

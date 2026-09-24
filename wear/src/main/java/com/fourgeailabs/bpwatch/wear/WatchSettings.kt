@@ -27,14 +27,31 @@ object WatchSettings {
      */
     private const val KEY_RECORD_HR = "record_hr_continuous"
     private const val KEY_WRIST = "wrist_side" // "left" or "right"
+    private const val KEY_HEIGHT_CM = "user_height_cm"
+    private const val KEY_WEIGHT_KG = "user_weight_kg"
     /** Fallback resting HR (bpm) until the phone sends the real baseline. */
     const val DEFAULT_RESTING_HR = 70f
+    const val DEFAULT_HEIGHT_CM = 175f
+    const val DEFAULT_WEIGHT_KG = 75f
 
     const val WRIST_LEFT = "left"
     const val WRIST_RIGHT = "right"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    fun getUserHeight(context: Context): Float =
+        prefs(context).getFloat(KEY_HEIGHT_CM, DEFAULT_HEIGHT_CM)
+
+    fun getUserWeight(context: Context): Float =
+        prefs(context).getFloat(KEY_WEIGHT_KG, DEFAULT_WEIGHT_KG)
+
+    fun setUserProfile(context: Context, heightCm: Float, weightKg: Float) {
+        prefs(context).edit()
+            .putFloat(KEY_HEIGHT_CM, heightCm)
+            .putFloat(KEY_WEIGHT_KG, weightKg)
+            .apply()
+    }
 
     fun getWrist(context: Context): String =
         prefs(context).getString(KEY_WRIST, WRIST_LEFT) ?: WRIST_LEFT

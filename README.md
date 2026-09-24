@@ -18,7 +18,13 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.07.10 (Current)
+### v2.07.11 (Current)
+- **Sleep, Body Fat (BIA), and HRV Engine Enhancements**: Comprehensive upgrade to Health Connect and local sensor data sync for Sleep sessions, Body Fat %, and HRV.
+- **PPG Heart Rate Beat Interval HRV Fallback**: Computes beat-to-beat RMSSD (ms) directly from raw PPG heart rate sample arrays whenever standalone HRV records are missing in Health Connect or Samsung Health.
+- **Personalized Wear OS BIA Calculation**: Synchronizes user height and weight from phone profile to watch `WatchSettings`, computing exact Fat-Free Mass (FFM), Fat Mass, Body Fat %, Skeletal Muscle Mass, total Body Water, and BMR on watch BIA scans.
+- **Direct Log Sheet Metrics**: Added Body Fat %, Sleep duration, and HRV RMSSD options to the home screen `+Log` sheet for easy manual logging and immediate Health Connect + Room persistence.
+
+### v2.07.10
 - **BFI Finger Electrode Contact Fixes**: Fixed physical electrode touch detection on Samsung Galaxy Watch Ultra and Wear OS side button keys.
 - **Side Key Event Interception**: Implemented activity-level `dispatchKeyEvent` catching `KEYCODE_HOME` (top key), `KEYCODE_BACK` (bottom key), `KEYCODE_STEM_1/2/3`, and navigation key events to detect finger contact on watch side buttons.
 - **Bi-Directional Electrode State Sync**: Updated watch `DataLayer` state messages to transmit `KEY_BIA_TOP_BUTTON_TOUCHED` and `KEY_BIA_BOTTOM_BUTTON_TOUCHED` flags to the mobile app in real-time.

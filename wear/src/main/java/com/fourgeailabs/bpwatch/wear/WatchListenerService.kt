@@ -1,5 +1,6 @@
 package com.fourgeailabs.bpwatch.wear
 
+import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -119,6 +120,11 @@ class WatchListenerService : WearableListenerService() {
                 if (map.containsKey(Link.KEY_RESTING_HR)) {
                     WatchSettings.saveRestingHr(this, map.getFloat(Link.KEY_RESTING_HR))
                 }
+                if (map.containsKey("height_cm")) {
+                    val h = map.getFloat("height_cm")
+                    val w = if (map.containsKey("weight_kg")) map.getFloat("weight_kg") else WatchSettings.getUserWeight(this)
+                    WatchSettings.setUserProfile(this, h, w)
+                }
             }
             Link.PATH_MONITORING_CONFIG -> {
                 val config = try {
@@ -164,8 +170,16 @@ class WatchListenerService : WearableListenerService() {
                 val bia = BiaSensorManager.getInstance(this)
                 bia.startScan()
                 try {
+                    val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                    @Suppress("DEPRECATION")
+                    val wakeLock = pm?.newWakeLock(
+                        android.os.PowerManager.FULL_WAKE_LOCK or android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP or android.os.PowerManager.ON_AFTER_RELEASE,
+                        "BPWatch:BiaScanWakeUp"
+                    )
+                    wakeLock?.acquire(10_000L)
+
                     val intent = android.content.Intent(this, MainActivity::class.java).apply {
-                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                         putExtra("action", "bia_scan")
                     }
                     startActivity(intent)
@@ -434,6 +448,22 @@ class WatchListenerService : WearableListenerService() {
                 return
             }
             reply("started", "Measuring…")
+            WatchState.triggerMeasure()
+            try {
+                val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+                @Suppress("DEPRECATION")
+                val wakeLock = pm?.newWakeLock(
+                    android.os.PowerManager.FULL_WAKE_LOCK or android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP or android.os.PowerManager.ON_AFTER_RELEASE,
+                    "BPWatch:BpRequestWakeUp"
+                )
+                wakeLock?.acquire(10_000L)
+
+                val intent = android.content.Intent(this, MainActivity::class.java).apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                    putExtra("action", "measure")
+                }
+                startActivity(intent)
+            } catch (_: Exception) {}
             val result = try {
                 HrMeasurement.measure(this)
             } catch (_: Exception) {

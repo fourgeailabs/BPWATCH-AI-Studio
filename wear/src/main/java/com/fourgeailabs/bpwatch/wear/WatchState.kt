@@ -49,8 +49,15 @@ object WatchState {
     private val _biaTrigger = MutableStateFlow(0L)
     val biaTrigger: StateFlow<Long> = _biaTrigger
 
+    private val _measureTrigger = MutableStateFlow(0L)
+    val measureTrigger: StateFlow<Long> = _measureTrigger
+
     fun triggerBia() {
         _biaTrigger.value = System.currentTimeMillis()
+    }
+
+    fun triggerMeasure() {
+        _measureTrigger.value = System.currentTimeMillis()
     }
 
     fun onEstimate(sys: Int, dia: Int, timestamp: Long) {
