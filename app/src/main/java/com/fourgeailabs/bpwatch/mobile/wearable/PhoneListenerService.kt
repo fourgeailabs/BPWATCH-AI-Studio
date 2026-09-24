@@ -54,6 +54,8 @@ class PhoneListenerService : WearableListenerService() {
             Link.PATH_SENSOR_TELEMETRY -> handleSensorTelemetry(event)
             Link.PATH_BIA_STATE -> handleBiaState(event)
             Link.PATH_BIA_RESULT -> handleBiaResult(event)
+            Link.PATH_OFF_BODY_STATE -> handleOffBodyState(event)
+            Link.PATH_SLEEP_SESSION_SYNC -> handleSleepSessionSync(event)
         }
     }
 
@@ -537,14 +539,52 @@ class PhoneListenerService : WearableListenerService() {
                 ) {
                     BpCheckState.toIdle()
                 }
-
-                // The watch is fully programmed on every reading (config,
-                // calibration, resting HR — covers reconnects, updates and
-                // reinstalls). See pushFullSync.
-                pushFullSync(event.sourceNodeId)
             } catch (_: Exception) {
                 // Never crash the listener on a malformed message.
             }
+        }
+    }
+
+    private fun handleOffBodyState(event: MessageEvent) {
+        try {
+            val map = DataMap.fromByteArray(event.data)
+            val isOffBody = map.getBoolean(Link.KEY_IS_OFF_BODY)
+            WatchLiveState.updateOffBodyState(isOffBody)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun handleSleepSessionSync(event: MessageEvent) {
+        try {
+            val map = DataMap.fromByteArray(event.data)
+            val startMs = map.getLong(Link.KEY_SLEEP_START)
+            val endMs = map.getLong(Link.KEY_SLEEP_END)
+            val minutes = map.getInt(Link.KEY_SLEEP_MINUTES)
+            scope.launch {
+                try {
+                    val hc = HealthConnectManager(applicationContext)
+                    hc.writeSleepSession(
+                        java.time.Instant.ofEpochMilli(startMs),
+                        java.time.Instant.ofEpochMilli(endMs),
+                        "Watch Sleep",
+                    )
+                } catch (_: Exception) {
+                }
+                try {
+                    val repo = com.fourgeailabs.bpwatch.mobile.BpRepository.get(applicationContext)
+                    val hrs = minutes / 60.0
+                    repo.addHealthLog(
+                        com.fourgeailabs.bpwatch.mobile.data.HealthLog(
+                            timestamp = System.currentTimeMillis(),
+                            kind = "sleep",
+                            value = hrs,
+                            label = String.format(java.util.Locale.US, "%.1f hrs", hrs),
+                        )
+                    )
+                } catch (_: Exception) {
+                }
+            }
+        } catch (_: Exception) {
         }
     }
 

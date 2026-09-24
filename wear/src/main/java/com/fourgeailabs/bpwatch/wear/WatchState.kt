@@ -37,6 +37,7 @@ object WatchState {
     /** True while the watch believes it is off-wrist (v2.3). */
     private val _offBody = MutableStateFlow(false)
     val offBody: StateFlow<Boolean> = _offBody
+    val isOffBody: StateFlow<Boolean> = _offBody
 
     /** Watch battery percentage (0..100). */
     private val _batteryLevel = MutableStateFlow(100)

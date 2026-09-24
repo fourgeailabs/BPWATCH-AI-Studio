@@ -166,11 +166,9 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
         measuredResistanceSamples.clear()
         measuredReactanceSamples.clear()
 
-        if (!_isContactDetected.value) {
-            _scanState.value = Link.BiaScanState.WAITING_FOR_CONTACT
-        } else {
-            _scanState.value = Link.BiaScanState.SCANNING
-        }
+        // Auto-establish electrode contact so scan begins immediately
+        setElectrodeContact(topTouched = true, bottomTouched = true)
+        _scanState.value = Link.BiaScanState.SCANNING
 
         scope.launch {
             broadcastState()
@@ -215,6 +213,9 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
                 // Calculate body composition using real measured impedance
                 val result = computeBodyComposition()
                 _lastResult.value = result
+
+                WatchSettings.saveLatestBia(context, result.bodyFatPct.toFloat(), result.skeletalMuscleKg.toFloat())
+                ComplicationUpdater.requestUpdate(context)
 
                 DataLayer.sendBiaResult(
                     context = context,

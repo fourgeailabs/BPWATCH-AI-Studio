@@ -3,6 +3,12 @@
     <string name="complication_bp_label">BPWatch BP</string>
     <string name="complication_hr_label">BPWatch heart rate</string>
     <string name="complication_stress_label">BPWatch stress</string>
+    <string name="complication_bia_label">BPWatch Body Fat</string>
+    <string name="complication_hrv_label">BPWatch HRV</string>
     <string name="tile_bp_label">BPWatch BP</string>
     <string name="tile_bp_description">Latest blood pressure reading and the time it was taken</string>
+    <string name="tile_bia_label">BPWatch Body Fat (BIA)</string>
+    <string name="tile_bia_description">Latest body fat composition and tap to scan</string>
+    <string name="tile_hrv_label">BPWatch HRV &amp; Heart Health</string>
+    <string name="tile_hrv_description">Latest heart rate variability and heart health metrics</string>
 </resources>

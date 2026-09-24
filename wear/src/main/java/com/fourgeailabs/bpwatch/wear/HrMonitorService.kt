@@ -242,6 +242,11 @@ class HrMonitorService : Service() {
                 } catch (_: Exception) {
                     -1f
                 }
+                WatchSettings.saveLatestHr(this@HrMonitorService, avg)
+                if (stress >= 0) WatchSettings.saveLatestStress(this@HrMonitorService, stress)
+                if (hrvRmssd > 0f) WatchSettings.saveLatestHrv(this@HrMonitorService, hrvRmssd)
+                ComplicationUpdater.requestUpdate(this@HrMonitorService)
+
                 DataLayer.sendHrReading(
                     context = applicationContext,
                     heartRate = avg,

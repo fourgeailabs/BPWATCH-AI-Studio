@@ -397,16 +397,7 @@ private fun BpWatchApp(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
             item {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    // Clear the TimeText the Scaffold draws at the top edge.
-                    Spacer(Modifier.height(26.dp))
-                    Text(
-                        text = "BPWatch",
-                        style = MaterialTheme.typography.title3,
-                        color = MaterialTheme.colors.onBackground.copy(alpha = 0.75f),
-                        textAlign = TextAlign.Center,
-                    )
-                }
+                Spacer(Modifier.height(18.dp))
             }
 
             when (uiState) {
@@ -449,7 +440,7 @@ private fun BpWatchApp(
                         Spacer(Modifier.height(32.dp))
                     }
                 } else {
-                    // Calibration status sits where the title used to be.
+                    // Calibration status
                     if (!calibrated) {
                         item {
                             Text(
@@ -484,12 +475,17 @@ private fun BpWatchApp(
                             )
                         }
                     }
-                    item { Spacer(Modifier.height(24.dp)) }
+                    item { Spacer(Modifier.height(8.dp)) }
                     item {
-                        // The reading is the hero: dead centre of the display.
-                        // (Both texts must live in a Column — bare siblings in
-                        // an item stack on top of each other like a Box.)
+                        // The reading is the hero: dead centre of the display with Heart Rate centered directly below.
                         val est = lastEstimate
+                        val cfg = monitorConfig
+                        val hrText = if (cfg?.continuousHr == true && liveContinuousHr > 0) {
+                            "♥ ${liveContinuousHr.toInt()} bpm"
+                        } else if (latestHrBpm > 0f && latestHrTs > 0L) {
+                            "♥ ${latestHrBpm.toInt()} bpm · ${timeAgo(latestHrTs)}"
+                        } else null
+
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = if (est != null) "${est.sys}/${est.dia}" else "--/--",
@@ -504,9 +500,18 @@ private fun BpWatchApp(
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(horizontal = 12.dp),
                             )
+                            if (hrText != null) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = hrText,
+                                    style = MaterialTheme.typography.title3,
+                                    color = Color(0xFFFF5252),
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
                         }
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
+                    item { Spacer(Modifier.height(36.dp)) }
                     item {
                         Chip(
                             onClick = { startMeasurement() },
@@ -556,29 +561,11 @@ private fun BpWatchApp(
                                 },
                                 modifier = Modifier.fillMaxWidth(0.85f),
                             )
-                            if (cfg?.continuousHr == true && liveContinuousHr > 0) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "♥ ${liveContinuousHr.toInt()} bpm",
-                                    style = MaterialTheme.typography.title3,
-                                    textAlign = TextAlign.Center,
-                                )
-                            } else if (latestHrBpm > 0f && latestHrTs > 0L) {
-                                // (K) Most recent measured HR, with its age —
-                                // no empty state, no waiting for a fresh read.
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "♥ ${latestHrBpm.toInt()} bpm · ${timeAgo(latestHrTs)}",
-                                    style = MaterialTheme.typography.title3,
-                                    textAlign = TextAlign.Center,
-                                )
-                            }
                             Spacer(Modifier.height(24.dp))
                         }
                     }
                     item {
-                        // Version stamp: confirms at a glance which build is
-                        // on the wrist (handy after a one-tap update).
+                        // Version stamp
                         Text(
                             text = "v${BuildConfig.VERSION_NAME}",
                             style = MaterialTheme.typography.caption2,

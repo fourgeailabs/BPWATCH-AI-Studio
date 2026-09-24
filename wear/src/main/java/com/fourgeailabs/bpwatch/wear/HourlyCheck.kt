@@ -48,7 +48,9 @@ object CheckScheduler {
         am.cancel(operation(context))
         if (intervalMinutes <= 0) return
         val effectiveInterval = WatchBatterySaver.getAdjustedBpInterval(context, intervalMinutes)
-        scheduleNextAt(context, nextTrigger(effectiveInterval, System.currentTimeMillis()))
+        val nextMs = nextTrigger(effectiveInterval, System.currentTimeMillis())
+        val safeNextMs = nextMs.coerceAtLeast(System.currentTimeMillis() + 10_000L)
+        scheduleNextAt(context, safeNextMs)
         Log.i(TAG, "BP checks scheduled every $effectiveInterval min (base: $intervalMinutes, saverActive: ${WatchBatterySaver.isBatterySaverActive(context)})")
     }
 
@@ -76,7 +78,9 @@ object CheckScheduler {
         }
         if (interval <= 0) return
         val effectiveInterval = WatchBatterySaver.getAdjustedBpInterval(context, interval)
-        scheduleNextAt(context, nextTrigger(effectiveInterval, System.currentTimeMillis()))
+        val nextMs = nextTrigger(effectiveInterval, System.currentTimeMillis())
+        val safeNextMs = nextMs.coerceAtLeast(System.currentTimeMillis() + 10_000L)
+        scheduleNextAt(context, safeNextMs)
     }
 
     private fun nextTrigger(intervalMinutes: Int, now: Long): Long =
@@ -176,6 +180,11 @@ class HourlyCheckReceiver : BroadcastReceiver() {
                         ) != PackageManager.PERMISSION_GRANTED
                     ) {
                         Log.i(TAG, "BP check skipped — body-sensors permission missing")
+                        CheckScheduler.chainNext(context)
+                        return@runBlocking
+                    }
+                    if (WatchState.isOffBody.value || OffBodyDetector.isPausedByHeuristic(context)) {
+                        Log.i(TAG, "BP check skipped — watch is off-body/off-wrist")
                         CheckScheduler.chainNext(context)
                         return@runBlocking
                     }

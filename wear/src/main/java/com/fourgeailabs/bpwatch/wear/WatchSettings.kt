@@ -130,6 +130,11 @@ object WatchSettings {
     private const val KEY_LATEST_HR = "latest_hr_bpm"
     private const val KEY_LATEST_HR_TS = "latest_hr_ts"
     private const val KEY_LATEST_STRESS = "latest_stress_score"
+    private const val KEY_LATEST_BODY_FAT = "latest_body_fat_pct"
+    private const val KEY_LATEST_SKELETAL_MUSCLE = "latest_skeletal_muscle_kg"
+    private const val KEY_LATEST_BIA_TS = "latest_bia_ts"
+    private const val KEY_LATEST_HRV_RMSSD = "latest_hrv_rmssd"
+    private const val KEY_LATEST_HRV_TS = "latest_hrv_ts"
 
     /** Latest measured heart rate in bpm; 0 means no measurement yet. */
     fun saveLatestHr(context: Context, bpm: Float) {
@@ -158,6 +163,47 @@ object WatchSettings {
 
     fun loadLatestStress(context: Context): Int =
         prefs(context).getInt(KEY_LATEST_STRESS, -1)
+
+    /** Latest BIA body fat composition. */
+    fun saveLatestBia(
+        context: Context,
+        bodyFatPct: Float,
+        skeletalMuscleKg: Float = 0f,
+        timestamp: Long = System.currentTimeMillis(),
+    ) {
+        prefs(context).edit()
+            .putFloat(KEY_LATEST_BODY_FAT, bodyFatPct)
+            .putFloat(KEY_LATEST_SKELETAL_MUSCLE, skeletalMuscleKg)
+            .putLong(KEY_LATEST_BIA_TS, timestamp)
+            .apply()
+    }
+
+    fun loadLatestBodyFat(context: Context): Float =
+        prefs(context).getFloat(KEY_LATEST_BODY_FAT, 0f)
+
+    fun loadLatestSkeletalMuscle(context: Context): Float =
+        prefs(context).getFloat(KEY_LATEST_SKELETAL_MUSCLE, 0f)
+
+    fun loadLatestBiaTs(context: Context): Long =
+        prefs(context).getLong(KEY_LATEST_BIA_TS, 0L)
+
+    /** Latest Heart Rate Variability (HRV RMSSD in ms). */
+    fun saveLatestHrv(
+        context: Context,
+        rmssdMs: Float,
+        timestamp: Long = System.currentTimeMillis(),
+    ) {
+        prefs(context).edit()
+            .putFloat(KEY_LATEST_HRV_RMSSD, rmssdMs)
+            .putLong(KEY_LATEST_HRV_TS, timestamp)
+            .apply()
+    }
+
+    fun loadLatestHrv(context: Context): Float =
+        prefs(context).getFloat(KEY_LATEST_HRV_RMSSD, 0f)
+
+    fun loadLatestHrvTs(context: Context): Long =
+        prefs(context).getLong(KEY_LATEST_HRV_TS, 0L)
 
     // ------------------------------------------------------------------
     // Off-body (off-wrist) detection streak (v2.3).

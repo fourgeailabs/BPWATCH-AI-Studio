@@ -42,12 +42,20 @@ object WatchLiveState {
     private val _batteryLevel = MutableStateFlow<Int?>(null)
     val batteryLevel: StateFlow<Int?> = _batteryLevel.asStateFlow()
 
+    /** True when watch reports it is off-body / off-wrist. */
+    private val _isOffBody = MutableStateFlow(false)
+    val isOffBody: StateFlow<Boolean> = _isOffBody.asStateFlow()
+
     /** True when watch reports battery-saving mode is active (< 20%). */
     private val _batterySaverActive = MutableStateFlow(false)
     val batterySaverActive: StateFlow<Boolean> = _batterySaverActive.asStateFlow()
 
     /** A tick is stale after 60s without an update (watch out of range, etc.). */
     private const val STALE_AFTER_MS = 60_000L
+
+    fun updateOffBodyState(offBody: Boolean) {
+        _isOffBody.value = offBody
+    }
 
     fun updateBatteryState(level: Int, saverActive: Boolean) {
         _batteryLevel.value = level

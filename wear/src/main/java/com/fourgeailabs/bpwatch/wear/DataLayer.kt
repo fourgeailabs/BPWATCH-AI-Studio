@@ -245,6 +245,26 @@ object DataLayer {
         return sendToAllNodes(context, Link.PATH_BIA_RESULT, payload)
     }
 
+    /** Watch → phone: off-body / off-wrist status update. */
+    suspend fun sendOffBodyState(context: Context, isOffBody: Boolean): Boolean {
+        val payload = DataMap().apply {
+            putBoolean(Link.KEY_IS_OFF_BODY, isOffBody)
+            putLong(Link.KEY_TIMESTAMP, System.currentTimeMillis())
+        }.toByteArray()
+        return sendToAllNodes(context, Link.PATH_OFF_BODY_STATE, payload)
+    }
+
+    /** Watch → phone: overnight sleep session sync. */
+    suspend fun sendSleepSession(context: Context, startMs: Long, endMs: Long, sleepMinutes: Int): Boolean {
+        val payload = DataMap().apply {
+            putLong(Link.KEY_SLEEP_START, startMs)
+            putLong(Link.KEY_SLEEP_END, endMs)
+            putInt(Link.KEY_SLEEP_MINUTES, sleepMinutes)
+            putLong(Link.KEY_TIMESTAMP, System.currentTimeMillis())
+        }.toByteArray()
+        return sendToAllNodes(context, Link.PATH_SLEEP_SESSION_SYNC, payload)
+    }
+
     /**
      * Watch → phone: "send me the full config + calibration state". Used on
      * boot and peer connect so a wiped/reinstalled watch re-programs itself

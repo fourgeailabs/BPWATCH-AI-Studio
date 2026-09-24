@@ -18,7 +18,23 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.07.11 (Current)
+### v2.07.14 (Current)
+- **Resolved BP Check Frequency Loop**: Fixed an issue where config synchronization re-triggered alarm scheduling, ensuring watch BP checks strictly follow the configured interval (e.g. hourly).
+- **Body Fat (BIA) Scan Electrode Fix**: Enabled automatic dual electrode contact detection when initiating BIA scans from watch or phone, allowing smooth 15-second body composition calculations.
+- **Active Off-Body / Off-Wrist Detection**: Added active off-wrist sensing using hardware sensors and heuristics; automatically pauses BP checks, continuous HR monitoring, and alerts whenever the watch is taken off.
+- **Sleep & Skin Temperature Data Sync**: Enhanced overnight sleep session tracking (`SleepTracker.kt`), skin temperature sensor readings (`SkinTempMonitor.kt`), and Health Connect integration so sleep and skin temp data populate reliably on phone & watch.
+- **Version Code Synchronization**: Updated Wear OS watch app to `v2.5.2` (versionCode `38`) and companion mobile app to `v2.07.14` (versionCode `56`).
+- **Wear OS Tiles for Body Fat & HRV**: Introduced dedicated Wear OS Tiles for Body Fat % (BIA) and Heart Rate Variability (HRV) on Galaxy Watch with one-tap action buttons to trigger measurements immediately.
+- **Watch-Face Complications**: Added Watch-face complications for Body Fat % (`BiaComplicationService`) and HRV RMSSD (`HrvComplicationService`), supporting both Short Text and Ranged Value complication types for full watch face compatibility.
+- **Real-Time Data Streaming & Updates**: Updated `ComplicationUpdater` to trigger real-time updates across all 5 complications and 3 tiles whenever new sensor measurements land.
+- **Wear OS Module Version Bump**: Updated Wear OS module to `v2.5.1` (versionCode `37`) bundled within phone companion app `v2.07.13` (versionCode `55`).
+
+### v2.07.12
+- **Bundled Watch APK Update**: Updated bundled watch APK inside the phone companion app to Wear OS `v2.5.0` (`36`).
+- **Seamless One-Tap Update Flow**: Ensured phone app correctly matches bundled watch APK version and streams the latest watch binary over Bluetooth or Wi-Fi.
+- **Screen Wake & Auto-Launch**: Added automatic screen wake lock and auto-launch intent triggers on watch when remote BIA scans or BP checks are initiated from the phone.
+
+### v2.07.11
 - **Sleep, Body Fat (BIA), and HRV Engine Enhancements**: Comprehensive upgrade to Health Connect and local sensor data sync for Sleep sessions, Body Fat %, and HRV.
 - **PPG Heart Rate Beat Interval HRV Fallback**: Computes beat-to-beat RMSSD (ms) directly from raw PPG heart rate sample arrays whenever standalone HRV records are missing in Health Connect or Samsung Health.
 - **Personalized Wear OS BIA Calculation**: Synchronizes user height and weight from phone profile to watch `WatchSettings`, computing exact Fat-Free Mass (FFM), Fat Mass, Body Fat %, Skeletal Muscle Mass, total Body Water, and BMR on watch BIA scans.

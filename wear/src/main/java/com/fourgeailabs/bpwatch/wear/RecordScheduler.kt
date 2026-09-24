@@ -165,6 +165,11 @@ class RecordSampleReceiver : BroadcastReceiver() {
                         RecordScheduler.chainNext(context)
                         return@runBlocking
                     }
+                    if (WatchState.isOffBody.value || OffBodyDetector.isPausedByHeuristic(context)) {
+                        Log.i(TAG, "Recording tick skipped — watch is off-wrist")
+                        RecordScheduler.chainNext(context)
+                        return@runBlocking
+                    }
                     val durationMs = WatchBatterySaver.getMeasurementDurationMs(context)
                     val result = HrMeasurement.measure(context, durationMs = durationMs)
                     if (result == null || result.offBody) {

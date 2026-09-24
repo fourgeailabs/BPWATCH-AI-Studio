@@ -20,6 +20,39 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.07.15",
+        versionCode = 57,
+        date = "2026-09-23",
+        notes = listOf(
+            "Removed BPWatch text title header from watch main screen for cleaner display",
+            "Moved heart rate display to sit centered directly below blood pressure reading",
+            "Adjusted layout spacing on Wear OS so action buttons sit comfortably below the top fold",
+            "Updated Wear OS app to v2.5.3 (39) and Phone app to v2.07.15 (57)",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.14",
+        versionCode = 56,
+        date = "2026-09-23",
+        notes = listOf(
+            "Fixed BP check frequency issue — resolved config sync loop so watch checks adhere strictly to configured interval (e.g., hourly)",
+            "Fixed Body Fat (BIA) index scan — auto-established dual electrode contact for seamless 15s body composition calculation",
+            "Implemented active off-body/off-wrist detection — automatically pauses background BP/HR polling when watch is not being worn",
+            "Restored Sleep and Skin Temperature data sync — enabled overnight sleep tracking, Health Connect integration, and skin temp telemetry",
+            "Updated Wear OS app to v2.5.2 (38) and Phone app to v2.07.14 (56)",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.13",
+        versionCode = 55,
+        date = "2026-09-23",
+        notes = listOf(
+            "Added Wear OS Tiles for Body Fat (BIA) and Heart Rate Variability (HRV) with one-tap measurement triggers",
+            "Added Watch-face complications for Body Fat % and HRV RMSSD (supporting Short Text and Ranged Value complication types)",
+            "Updated Wear OS module to v2.5.1 (37) with real-time complication and tile streaming data updates",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.12",
         versionCode = 54,
         date = "2026-09-23",

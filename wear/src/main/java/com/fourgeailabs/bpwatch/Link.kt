@@ -40,6 +40,8 @@ object Link {
     const val PATH_BATTERY_STATE = "/bpwatch/battery_state"
     const val KEY_BATTERY_LEVEL = "battery_level"
     const val KEY_BATTERY_SAVER_ACTIVE = "battery_saver_active"
+    const val KEY_BATTERY_SAVER_THRESHOLD = "battery_saver_threshold"
+    const val KEY_BATTERY_SAVER_ENABLED = "battery_saver_enabled"
 
 
     // ------------------------------------------------------------------
@@ -218,6 +220,13 @@ object Link {
 
     const val PATH_BODY_FAT_SYNC = "/bpwatch/body_fat_sync"
     const val PATH_SENSOR_TELEMETRY = "/bpwatch/sensor_telemetry"
+    const val PATH_OFF_BODY_STATE = "/bpwatch/off_body_state"
+    const val PATH_SLEEP_SESSION_SYNC = "/bpwatch/sleep_session_sync"
+
+    const val KEY_IS_OFF_BODY = "is_off_body"
+    const val KEY_SLEEP_START = "sleep_start"
+    const val KEY_SLEEP_END = "sleep_end"
+    const val KEY_SLEEP_MINUTES = "sleep_minutes"
 
     // ------------------------------------------------------------------
     // Body Fat / BIA Electrodes & Scan contract (v2.7.4)
