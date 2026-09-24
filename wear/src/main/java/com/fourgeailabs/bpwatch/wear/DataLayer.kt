@@ -200,6 +200,8 @@ object DataLayer {
         context: Context,
         scanState: String,
         isContactDetected: Boolean,
+        isTopTouched: Boolean,
+        isBottomTouched: Boolean,
         progress: Float,
         elapsedMs: Long,
         message: String = "",
@@ -207,6 +209,8 @@ object DataLayer {
         val payload = DataMap().apply {
             putString(Link.KEY_BIA_SCAN_STATE, scanState)
             putBoolean(Link.KEY_BIA_CONTACT_DETECTED, isContactDetected)
+            putBoolean(Link.KEY_BIA_TOP_BUTTON_TOUCHED, isTopTouched)
+            putBoolean(Link.KEY_BIA_BOTTOM_BUTTON_TOUCHED, isBottomTouched)
             putFloat(Link.KEY_BIA_PROGRESS, progress)
             putLong(Link.KEY_BIA_ELAPSED_MS, elapsedMs)
             putString(Link.KEY_BIA_MESSAGE, message)

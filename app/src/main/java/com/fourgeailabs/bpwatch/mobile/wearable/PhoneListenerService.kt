@@ -726,10 +726,12 @@ class PhoneListenerService : WearableListenerService() {
             val map = DataMap.fromByteArray(event.data)
             val state = map.getString(Link.KEY_BIA_SCAN_STATE).orEmpty()
             val isContact = map.getBoolean(Link.KEY_BIA_CONTACT_DETECTED, false)
+            val top = map.getBoolean(Link.KEY_BIA_TOP_BUTTON_TOUCHED, isContact)
+            val bottom = map.getBoolean(Link.KEY_BIA_BOTTOM_BUTTON_TOUCHED, isContact)
             val prog = map.getFloat(Link.KEY_BIA_PROGRESS, 0f)
             val elapsed = map.getLong(Link.KEY_BIA_ELAPSED_MS, 0L)
             val msg = map.getString(Link.KEY_BIA_MESSAGE).orEmpty()
-            BiaState.onStateReceived(state, isContact, prog, elapsed, msg)
+            BiaState.onStateReceived(state, isContact, top, bottom, prog, elapsed, msg)
         } catch (_: Exception) {
         }
     }

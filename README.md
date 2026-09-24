@@ -18,7 +18,19 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.07.08 (Current)
+### v2.07.10 (Current)
+- **BFI Finger Electrode Contact Fixes**: Fixed physical electrode touch detection on Samsung Galaxy Watch Ultra and Wear OS side button keys.
+- **Side Key Event Interception**: Implemented activity-level `dispatchKeyEvent` catching `KEYCODE_HOME` (top key), `KEYCODE_BACK` (bottom key), `KEYCODE_STEM_1/2/3`, and navigation key events to detect finger contact on watch side buttons.
+- **Bi-Directional Electrode State Sync**: Updated watch `DataLayer` state messages to transmit `KEY_BIA_TOP_BUTTON_TOUCHED` and `KEY_BIA_BOTTOM_BUTTON_TOUCHED` flags to the mobile app in real-time.
+- **Hardware Sensor & Touch Gesture Integration**: Expanded BioActive / BIA vendor hardware sensor listeners and added press-and-hold touch gestures on watch UI electrode cards.
+
+### v2.07.09
+- **Enhanced Health Connect Synchronization for Skin Temperature, HRV, and Sleep**: Resolved data ingestion gaps across Samsung Health and third-party Health Connect providers.
+- **Body Temperature Fallback & Baseline Evaluation**: Added `BodyTemperatureRecord` support and expanded `SkinTemperatureRecord` parsing to calculate temperature deltas from baseline records when explicit delta arrays are omitted by wearables.
+- **Expanded Lookback & Query Resilience**: Expanded HRV RMSSD and Sleep session lookback windows (to 30 days and 48 hours respectively) with robust paginated query fallback handling.
+- **Sleep Stage Mapping**: Included `STAGE_TYPE_SLEEPING` mapping for 7-night sleep overview cards, weekly sleep distribution, and hypnogram breakdown.
+
+### v2.07.08
 - **Interactive Measurement Posture Guide**: Added a dedicated **Measurement posture** card in Settings that launches an interactive 4-step tutorial overlay (`PostureTutorialDialog.kt`).
 - **Optimal Ergonomics & Heart-Level Positioning**: Guides users through 5-minute seated rest, heart-level watch wrist alignment to prevent ~10 mmHg hydrostatic errors, complete stillness during optical checks, and matching cuff calibration posture.
 - **Clinical Explanations & Do/Don't Lists**: Displays key clinical reasoning, Do vs. Don't lists, and progress tracking for every posture step.

@@ -15,6 +15,7 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
+import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
@@ -73,7 +74,7 @@ class HealthConnectManager(private val context: Context) {
         val out = mutableListOf<T>()
         var pageToken: String? = null
         try {
-            repeat(20) {
+            for (page in 0..19) {
                 val req = ReadRecordsRequest(
                     recordType = T::class,
                     timeRangeFilter = filter,
@@ -82,7 +83,7 @@ class HealthConnectManager(private val context: Context) {
                 val resp = client.readRecords(req)
                 out += resp.records
                 pageToken = resp.pageToken
-                if (pageToken == null) return out
+                if (pageToken == null) break
             }
         } catch (_: Exception) {
             // Gracefully return records collected so far if a page times out or fails
@@ -177,6 +178,8 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getWritePermission(LeanBodyMassRecord::class),
         HealthPermission.getReadPermission(SkinTemperatureRecord::class),
         HealthPermission.getWritePermission(SkinTemperatureRecord::class),
+        HealthPermission.getReadPermission(BodyTemperatureRecord::class),
+        HealthPermission.getWritePermission(BodyTemperatureRecord::class),
         HealthPermission.getReadPermission(OxygenSaturationRecord::class),
         HealthPermission.getWritePermission(OxygenSaturationRecord::class),
     )
@@ -206,6 +209,7 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
         HealthPermission.getReadPermission(BodyFatRecord::class),
         HealthPermission.getReadPermission(SkinTemperatureRecord::class),
+        HealthPermission.getReadPermission(BodyTemperatureRecord::class),
     )
 
     fun permissionContract() = PermissionController.createRequestPermissionResultContract()
@@ -333,20 +337,12 @@ class HealthConnectManager(private val context: Context) {
             null
         }
 
-        // Last night's sleep: sessions ending in the last 36 hours, grouped by
+        // Last night's sleep: sessions ending in the last 48 hours, grouped by
         // wake date (each record's own endZoneOffset, so night attribution
-        // stays stable after travel/timezone changes). The newest wake-date
-        // group is "last night" — without grouping, the 36 h window could
-        // merge a nap or an early night into the total.
-        // v2.3 sleep audit: counts actual sleep (stages), not time in bed.
-        val sleepCutoff = now.minus(36, ChronoUnit.HOURS)
+        // stays stable after travel/timezone changes).
+        val sleepCutoff = now.minus(48, ChronoUnit.HOURS)
         val sleepSessions = try {
-            client.readRecords(
-                ReadRecordsRequest(
-                    recordType = SleepSessionRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(sleepCutoff, now),
-                )
-            ).records
+            readAllRecords<SleepSessionRecord>(TimeRangeFilter.between(sleepCutoff, now))
                 .filter { it.endTime.isAfter(sleepCutoff) }
         } catch (_: Exception) {
             emptyList()
@@ -360,48 +356,52 @@ class HealthConnectManager(private val context: Context) {
 
         // Latest body fat percentage
         val bodyFatPct = try {
-            client.readRecords(
-                ReadRecordsRequest(
-                    recordType = BodyFatRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(now.minus(30, ChronoUnit.DAYS), now),
-                )
-            ).records.maxByOrNull { it.time }?.percentage?.let { HcUnitReaders.percentage(it) }
+            readAllRecords<BodyFatRecord>(TimeRangeFilter.between(now.minus(30, ChronoUnit.DAYS), now))
+                .maxByOrNull { it.time }?.percentage?.let { HcUnitReaders.percentage(it) }
         } catch (_: Exception) {
             null
         }
 
-        // Latest HRV RMSSD (ms)
+        // Latest HRV RMSSD (ms) — 30 day window fallback for periodic measurements
         val hrvRmssd = try {
-            client.readRecords(
-                ReadRecordsRequest(
-                    recordType = HeartRateVariabilityRmssdRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(now.minus(7, ChronoUnit.DAYS), now),
-                )
-            ).records.maxByOrNull { it.time }?.heartRateVariabilityMillis
+            readAllRecords<HeartRateVariabilityRmssdRecord>(TimeRangeFilter.between(now.minus(30, ChronoUnit.DAYS), now))
+                .maxByOrNull { it.time }?.heartRateVariabilityMillis
         } catch (_: Exception) {
             null
         }
 
         // Latest Resting HR (bpm)
         val restingHr = try {
-            client.readRecords(
-                ReadRecordsRequest(
-                    recordType = RestingHeartRateRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(now.minus(7, ChronoUnit.DAYS), now),
-                )
-            ).records.maxByOrNull { it.time }?.beatsPerMinute
+            readAllRecords<RestingHeartRateRecord>(TimeRangeFilter.between(now.minus(14, ChronoUnit.DAYS), now))
+                .maxByOrNull { it.time }?.beatsPerMinute
         } catch (_: Exception) {
             null
         }
 
-        // Latest Skin Temperature delta
+        // Latest Skin Temperature delta (evaluating deltas, baseline, and body temperature)
         val skinTempDelta = try {
-            client.readRecords(
-                ReadRecordsRequest(
-                    recordType = SkinTemperatureRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(now.minus(48, ChronoUnit.HOURS), now),
-                )
-            ).records.flatMap { it.deltas }.maxByOrNull { it.time }?.let { HcUnitReaders.celsiusDelta(it.delta) }
+            val skinRecs = readAllRecords<SkinTemperatureRecord>(TimeRangeFilter.between(now.minus(7, ChronoUnit.DAYS), now))
+            val deltaFromSkin = skinRecs.mapNotNull { rec ->
+                rec.deltas.maxByOrNull { it.time }?.let { d ->
+                    rec.startTime to HcUnitReaders.celsiusDelta(d.delta)
+                } ?: rec.baseline?.let { b ->
+                    val celsius = HcUnitReaders.celsius(b)
+                    if (celsius.isFinite()) {
+                        val valDelta = if (celsius > 20.0) (celsius - 37.0) else celsius
+                        rec.startTime to valDelta
+                    } else null
+                }
+            }.maxByOrNull { it.first }?.second
+
+            if (deltaFromSkin != null && deltaFromSkin.isFinite()) {
+                deltaFromSkin
+            } else {
+                val bodyRecs = readAllRecords<BodyTemperatureRecord>(TimeRangeFilter.between(now.minus(7, ChronoUnit.DAYS), now))
+                bodyRecs.maxByOrNull { it.time }?.let { b ->
+                    val c = HcUnitReaders.celsius(b.temperature)
+                    if (c.isFinite()) (c - 37.0) else null
+                }
+            }
         } catch (_: Exception) {
             null
         }
@@ -539,13 +539,34 @@ class HealthConnectManager(private val context: Context) {
                     .sortedBy { it.timestamp }
             }
             HcTrendMetric.SKIN_TEMP -> {
-                val records = readAllRecords<SkinTemperatureRecord>(filter)
-                records.flatMap { it.deltas }
-                    .groupBy { bucketStart(it.time, start, slicer) }
-                    .mapNotNull { (bucket, rs) ->
-                        rs.maxByOrNull { it.time }?.let { d ->
+                val skinRecords = readAllRecords<SkinTemperatureRecord>(filter)
+                val skinPoints = skinRecords.flatMap { rec ->
+                    if (rec.deltas.isNotEmpty()) {
+                        rec.deltas.mapNotNull { d ->
                             val delta = HcUnitReaders.celsiusDelta(d.delta)
-                            if (delta.isFinite()) HcTrendPoint(bucket.toEpochMilli(), delta.toFloat()) else null
+                            if (delta.isFinite()) d.time to delta else null
+                        }
+                    } else {
+                        val base = rec.baseline
+                        if (base != null) {
+                            val c = HcUnitReaders.celsius(base)
+                            if (c.isFinite()) {
+                                val d = if (c > 20.0) (c - 37.0) else c
+                                listOf(rec.startTime to d)
+                            } else emptyList()
+                        } else emptyList()
+                    }
+                }
+                val bodyRecords = readAllRecords<BodyTemperatureRecord>(filter)
+                val bodyPoints = bodyRecords.mapNotNull { rec ->
+                    val c = HcUnitReaders.celsius(rec.temperature)
+                    if (c.isFinite()) rec.time to (c - 37.0) else null
+                }
+                (skinPoints + bodyPoints)
+                    .groupBy { (time, _) -> bucketStart(time, start, slicer) }
+                    .mapNotNull { (bucket, pairs) ->
+                        pairs.maxByOrNull { (t, _) -> t }?.let { (_, delta) ->
+                            HcTrendPoint(bucket.toEpochMilli(), delta.toFloat())
                         }
                     }
                     .sortedBy { it.timestamp }
@@ -751,6 +772,7 @@ class HealthConnectManager(private val context: Context) {
                     val awakeM = stageMins[SleepSessionRecord.STAGE_TYPE_AWAKE] ?: 0L
                     val remM = stageMins[SleepSessionRecord.STAGE_TYPE_REM] ?: 0L
                     val lightM = (stageMins[SleepSessionRecord.STAGE_TYPE_LIGHT] ?: 0L) +
+                            (stageMins[SleepSessionRecord.STAGE_TYPE_SLEEPING] ?: 0L) +
                             (stageMins[SleepSessionRecord.STAGE_TYPE_UNKNOWN] ?: 0L)
                     val deepM = stageMins[SleepSessionRecord.STAGE_TYPE_DEEP] ?: 0L
                     val tib = ChronoUnit.MINUTES.between(session.startTime, session.endTime)
@@ -880,10 +902,30 @@ class HealthConnectManager(private val context: Context) {
                         timeRangeFilter = range,
                     )
                 ).records
-                val skinTemps = skinRecords.flatMap { it.deltas }.mapNotNull { delta ->
-                    HcUnitReaders.celsiusDelta(delta.delta).takeIf { it.isFinite() }
+                val skinTemps = skinRecords.flatMap { rec ->
+                    if (rec.deltas.isNotEmpty()) {
+                        rec.deltas.mapNotNull { delta ->
+                            HcUnitReaders.celsiusDelta(delta.delta).takeIf { it.isFinite() }
+                        }
+                    } else {
+                        rec.baseline?.let { b ->
+                            val c = HcUnitReaders.celsius(b)
+                            if (c.isFinite()) listOf(if (c > 20.0) (c - 37.0) else c) else emptyList()
+                        } ?: emptyList()
+                    }
                 }
                 val avgSkinDelta = skinTemps.average().takeIf { skinTemps.isNotEmpty() }
+                    ?: try {
+                        client.readRecords(
+                            ReadRecordsRequest(
+                                recordType = BodyTemperatureRecord::class,
+                                timeRangeFilter = range,
+                            )
+                        ).records.mapNotNull { rec ->
+                            val c = HcUnitReaders.celsius(rec.temperature)
+                            if (c.isFinite()) (c - 37.0) else null
+                        }.average().takeIf { it.isFinite() }
+                    } catch (_: Exception) { null }
 
                 // v2.4.6: sleep latency = session start to first sleep stage.
                 val sortedStages = session.stages.sortedBy { it.startTime }

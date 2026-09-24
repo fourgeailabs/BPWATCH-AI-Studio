@@ -50,6 +50,8 @@ import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.Vignette
 import androidx.wear.compose.material.VignettePosition
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -138,22 +140,40 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
-        if (keyCode == android.view.KeyEvent.KEYCODE_STEM_1 || keyCode == android.view.KeyEvent.KEYCODE_STEM_PRIMARY) {
-            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = true, isDown = true)
-        } else if (keyCode == android.view.KeyEvent.KEYCODE_STEM_2) {
-            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = false, isDown = true)
-        }
-        return super.onKeyDown(keyCode, event)
+    private fun isTopButtonKey(keyCode: Int): Boolean = when (keyCode) {
+        android.view.KeyEvent.KEYCODE_STEM_1,
+        android.view.KeyEvent.KEYCODE_STEM_PRIMARY,
+        android.view.KeyEvent.KEYCODE_HOME,
+        android.view.KeyEvent.KEYCODE_NAVIGATE_IN,
+        android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+        android.view.KeyEvent.KEYCODE_ENTER,
+        android.view.KeyEvent.KEYCODE_BUTTON_A,
+        android.view.KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP -> true
+        else -> false
     }
 
-    override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent?): Boolean {
-        if (keyCode == android.view.KeyEvent.KEYCODE_STEM_1 || keyCode == android.view.KeyEvent.KEYCODE_STEM_PRIMARY) {
-            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = true, isDown = false)
-        } else if (keyCode == android.view.KeyEvent.KEYCODE_STEM_2) {
-            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = false, isDown = false)
+    private fun isBottomButtonKey(keyCode: Int): Boolean = when (keyCode) {
+        android.view.KeyEvent.KEYCODE_STEM_2,
+        android.view.KeyEvent.KEYCODE_STEM_3,
+        android.view.KeyEvent.KEYCODE_BACK,
+        android.view.KeyEvent.KEYCODE_NAVIGATE_OUT,
+        android.view.KeyEvent.KEYCODE_BUTTON_B,
+        android.view.KeyEvent.KEYCODE_SYSTEM_NAVIGATION_DOWN -> true
+        else -> false
+    }
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        val isDown = event.action == android.view.KeyEvent.ACTION_DOWN
+        val keyCode = event.keyCode
+
+        if (isTopButtonKey(keyCode)) {
+            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = true, isDown = isDown)
+            return true
+        } else if (isBottomButtonKey(keyCode)) {
+            BiaSensorManager.getInstance(this).onButtonKeyEvent(isTopButton = false, isDown = isDown)
+            return true
         }
-        return super.onKeyUp(keyCode, event)
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
@@ -1027,12 +1047,21 @@ private fun ElectrodeButtonRow(
         },
         secondaryLabel = {
             Text(
-                text = if (isContact) "● Contact detected" else "○ Touch electrode",
+                text = if (isContact) "● Contact detected" else "○ Touch / Hold electrode",
                 style = MaterialTheme.typography.caption2,
                 color = if (isContact) activeColor else MaterialTheme.colors.onSurface.copy(alpha = 0.5f),
             )
         },
-        modifier = Modifier.fillMaxWidth(0.9f),
+        modifier = Modifier
+            .fillMaxWidth(0.9f)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        onClick()
+                        tryAwaitRelease()
+                    }
+                )
+            },
     )
 }
 

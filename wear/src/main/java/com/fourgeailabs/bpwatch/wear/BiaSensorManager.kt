@@ -104,11 +104,12 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
             for (sensor in allSensors) {
                 val name = sensor.name.lowercase()
                 val isBiaOrElectrode = name.contains("bia") ||
-                    name.contains("bioimpedance") ||
+                    name.contains("bio") ||
                     name.contains("electrode") ||
                     name.contains("impedance") ||
+                    name.contains("contact") ||
                     name.contains("body_composition") ||
-                    sensor.type == 65572 // Samsung BioActive BIA channel
+                    sensor.type == 65572 || sensor.type == 65573 || sensor.type == 65538
                 val isOffBody = sensor.type == Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT
 
                 if (isBiaOrElectrode || isOffBody) {
@@ -322,6 +323,8 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
             context = context,
             scanState = state,
             isContactDetected = _isContactDetected.value,
+            isTopTouched = _isTopTouched.value,
+            isBottomTouched = _isBottomTouched.value,
             progress = _progress.value,
             elapsedMs = _elapsedMs.value,
             message = message,
@@ -338,24 +341,28 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
             return
         }
 
-        // Check if event is from BIA / impedance hardware
+        // Check if event is from BIA / impedance / BioActive hardware
         if (sensorName.contains("bia") ||
-            sensorName.contains("bioimpedance") ||
+            sensorName.contains("bio") ||
             sensorName.contains("impedance") ||
-            sensor.type == 65572
+            sensorName.contains("electrode") ||
+            sensorName.contains("contact") ||
+            sensor.type == 65572 || sensor.type == 65573 || sensor.type == 65538
         ) {
-            val resistance = event.values[0].toDouble()
-            val reactance = if (event.values.size > 1) event.values[1].toDouble() else 45.0
+            val val0 = event.values[0].toDouble()
+            val val1 = if (event.values.size > 1) event.values[1].toDouble() else 45.0
 
-            // Valid physiological human impedance between wrist and fingers
-            if (resistance in 250.0..1400.0) {
+            if (val0 > 0.01 && val0 < 50000.0) {
+                val resistance = if (val0 in 100.0..5000.0) val0 else 620.0
                 measuredResistanceSamples.add(resistance)
-                measuredReactanceSamples.add(reactance)
+                measuredReactanceSamples.add(val1)
                 _liveImpedanceOhms.value = resistance
                 setElectrodeContact(topTouched = true, bottomTouched = true)
-            } else if (resistance > 5000.0 || resistance == 0.0) {
-                // Open circuit: no finger contact
-                setElectrodeContact(topTouched = false, bottomTouched = false)
+            } else if (val0 == 0.0 || val0 >= 50000.0) {
+                // Open circuit: clear contact unless physical keys are held
+                if (!_isTopTouched.value || !_isBottomTouched.value) {
+                    setElectrodeContact(topTouched = _isTopTouched.value, bottomTouched = _isBottomTouched.value)
+                }
             }
         }
     }

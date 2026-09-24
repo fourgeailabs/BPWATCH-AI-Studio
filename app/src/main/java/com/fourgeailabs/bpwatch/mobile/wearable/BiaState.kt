@@ -61,14 +61,16 @@ object BiaState {
     fun onStateReceived(
         state: String,
         isContact: Boolean,
+        top: Boolean,
+        bottom: Boolean,
         prog: Float,
         elapsed: Long,
         msg: String,
     ) {
         _scanState.value = state
         _contactDetected.value = isContact
-        _topTouched.value = isContact
-        _bottomTouched.value = isContact
+        _topTouched.value = top
+        _bottomTouched.value = bottom
         _progress.value = prog
         _elapsedMs.value = elapsed
         _statusMessage.value = msg

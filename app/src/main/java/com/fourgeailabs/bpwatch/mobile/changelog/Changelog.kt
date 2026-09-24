@@ -20,6 +20,28 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.07.10",
+        versionCode = 52,
+        date = "2026-09-23",
+        notes = listOf(
+            "Resolved Body Fat Index (BFI) finger electrode contact detection across Samsung Galaxy Watch Ultra and Wear OS side button keys",
+            "Added comprehensive KEYCODE_HOME, KEYCODE_BACK, KEYCODE_STEM_1/2/3 key interceptors via dispatchKeyEvent to detect physical side electrode contact",
+            "Expanded watch DataLayer payload to transmit live top and bottom button electrode touch states to the mobile app",
+            "Added press-and-hold interactive electrode touch cards on the watch UI for touch sensing feedback",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.09",
+        versionCode = 51,
+        date = "2026-09-23",
+        notes = listOf(
+            "Enhanced Health Connect data porting for Skin Temperature, HRV, and Sleep across Samsung Health and third-party health providers",
+            "Added BodyTemperatureRecord query and baseline/delta evaluation fallback for skin temperature telemetry",
+            "Expanded HRV RMSSD and Sleep session lookback windows with robust paginated query fallbacks",
+            "Included STAGE_TYPE_SLEEPING stage mapping in 7-night sleep overview and hypnogram breakdown",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.08",
         versionCode = 50,
         date = "2026-09-23",
