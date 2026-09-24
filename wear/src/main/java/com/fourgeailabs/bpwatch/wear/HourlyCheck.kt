@@ -77,10 +77,7 @@ object CheckScheduler {
             0
         }
         if (interval <= 0) return
-        val effectiveInterval = WatchBatterySaver.getAdjustedBpInterval(context, interval)
-        val nextMs = nextTrigger(effectiveInterval, System.currentTimeMillis())
-        val safeNextMs = nextMs.coerceAtLeast(System.currentTimeMillis() + 10_000L)
-        scheduleNextAt(context, safeNextMs)
+        schedule(context, interval)
     }
 
     private fun nextTrigger(intervalMinutes: Int, now: Long): Long =
@@ -226,6 +223,7 @@ class HourlyCheckReceiver : BroadcastReceiver() {
                         stress,
                         result.bodyPosition,
                         result.activity,
+                        skinTempC = result.skinTempC,
                     )
                     // v2.3.1: push the step count alongside every scheduled
                     // check too — free freshness on top of the 15-minute

@@ -23,6 +23,8 @@ class SkinTempMonitor(context: Context) : SensorEventListener {
     var lastCelsius: Float? = null
         private set
 
+    private val readings = mutableListOf<Float>()
+
     init {
         findTempSensor()
     }
@@ -68,12 +70,25 @@ class SkinTempMonitor(context: Context) : SensorEventListener {
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null || event.values.isEmpty()) return
         val raw = event.values[0]
-        if (raw in 20.0f..45.0f) {
-            lastCelsius = raw
+        val celsius = if (raw in 20.0f..45.0f) {
+            raw
         } else if (raw in -5.0f..10.0f) {
             // Delta from 37°C baseline
-            lastCelsius = 37.0f + raw
+            37.0f + raw
+        } else {
+            null
         }
+        if (celsius != null) {
+            lastCelsius = celsius
+            readings.add(celsius)
+        }
+    }
+
+    fun getAverageOrLast(): Float? {
+        if (readings.isNotEmpty()) {
+            return readings.average().toFloat()
+        }
+        return lastCelsius
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {

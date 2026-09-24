@@ -2,8 +2,8 @@
 
 - **App Creator**: [FourgeAI Labs](https://github.com/fourgeailabs)
 - **GitHub Repository**: [https://github.com/fourgeailabs/bpwatch](https://github.com/fourgeailabs/bpwatch)
-- **Phone App Version**: v2.8.0 (Code 60)
-- **Watch App Version**: v2.6.0 (Code 42)
+- **Phone App Version**: v2.9.1 (Code 62)
+- **Watch App Version**: v2.7.1 (Code 44)
 
 A two-app system that works around Samsung's lock-in:
 
@@ -23,7 +23,15 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.8.0 / v2.6.0 (Current)
+### v2.9.1 / v2.7.1 (Current)
+- **Strict Check Frequency Scheduling**: Fixed background alarm chaining in `CheckScheduler` and bounded background recording cadences so checks strictly follow the user's configured interval (e.g. every hour) without running more frequently than set.
+- **Version Synchronization**: Bumped mobile companion app to `v2.9.1` (versionCode `62`) and Wear OS watch module to `v2.7.1` (versionCode `44`).
+
+### v2.9.0 / v2.7.0
+- **Dynamic Body Temperature Updates**: Enhanced skin temperature sampling during blood pressure checks so body temperature updates dynamically every time BP is checked rather than just once.
+- **Version Synchronization**: Bumped mobile companion app to `v2.9.0` (versionCode `61`) and Wear OS watch module to `v2.7.0` (versionCode `43`).
+
+### v2.8.0 / v2.6.0
 - **Active Sensor Status Indicators**: Added real-time visual sensor status indicators on the mobile app home screen showing streaming state for EKG, Blood Pressure, Body Fat (BIA), and Skin Temperature.
 - **Live EKG Waveform Visualization**: Implemented high-frequency live EKG waveform rendering on the home screen streaming real-time voltage packets received from the wearable module.
 - **Version Synchronization**: Bumped mobile companion app to `v2.8.0` (versionCode `60`) and Wear OS watch module to `v2.6.0` (versionCode `42`).

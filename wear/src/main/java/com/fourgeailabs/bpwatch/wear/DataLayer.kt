@@ -22,6 +22,7 @@ object DataLayer {
         activity: String = Link.ActivityState.SITTING,
         measurementLocation: Int = WatchSettings.getMeasurementLocation(context),
         hrvRmssd: Float = -1f,
+        skinTempC: Float = -1f,
     ): Boolean {
         return try {
             val payload = DataMap().apply {
@@ -37,16 +38,21 @@ object DataLayer {
                 putString(Link.KEY_WRIST, WatchSettings.getWrist(context))
                 putInt(Link.KEY_BATTERY_LEVEL, WatchBatterySaver.getBatteryLevel(context))
                 putBoolean(Link.KEY_BATTERY_SAVER_ACTIVE, WatchBatterySaver.isBatterySaverActive(context))
-                val skinTemp = try {
-                    val monitor = SkinTempMonitor(context)
-                    monitor.start()
-                    val t = monitor.lastCelsius ?: 36.6f
-                    monitor.stop()
-                    t
-                } catch (_: Exception) {
-                    36.6f
+                val finalSkinTemp = if (skinTempC > 0f) {
+                    skinTempC
+                } else {
+                    try {
+                        val monitor = SkinTempMonitor(context)
+                        monitor.start()
+                        kotlinx.coroutines.delay(200L)
+                        val t = monitor.getAverageOrLast() ?: 36.6f
+                        monitor.stop()
+                        t
+                    } catch (_: Exception) {
+                        36.6f
+                    }
                 }
-                putFloat(Link.KEY_SKIN_TEMP_C, skinTemp)
+                putFloat(Link.KEY_SKIN_TEMP_C, finalSkinTemp)
             }.toByteArray()
 
             val nodes = Wearable.getNodeClient(context).connectedNodes.await()

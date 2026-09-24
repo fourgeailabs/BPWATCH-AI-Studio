@@ -127,7 +127,21 @@ object WatchBatterySaver {
      * Relaxed from 10 min to 30 min in battery saver mode.
      */
     fun getRecordIntervalMs(context: Context): Long {
-        return if (isBatterySaverActive(context)) RECORD_SAVER_MS else RECORD_NORMAL_MS
+        val configIntervalMinutes = try {
+            WatchSettings.getMonitorConfig(context).bpIntervalMinutes
+        } catch (_: Exception) {
+            0
+        }
+        val baseInterval = if (configIntervalMinutes > 0) {
+            maxOf(RECORD_NORMAL_MS, configIntervalMinutes * 60_000L)
+        } else {
+            RECORD_NORMAL_MS
+        }
+        return if (isBatterySaverActive(context)) {
+            maxOf(baseInterval, RECORD_SAVER_MS)
+        } else {
+            baseInterval
+        }
     }
 
     /**

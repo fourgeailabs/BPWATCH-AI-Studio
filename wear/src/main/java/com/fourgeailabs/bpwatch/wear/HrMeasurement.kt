@@ -29,6 +29,8 @@ object HrMeasurement {
         val bodyPosition: Int = Link.Posture.SITTING_DOWN,
         /** Detected activity: "sitting", "standing", "walking", "lying_down". */
         val activity: String = Link.ActivityState.SITTING,
+        /** Measured skin temperature in Celsius during this check. */
+        val skinTempC: Float = 36.6f,
     )
 
     /** @return the measurement, or null if no valid samples. */
@@ -39,6 +41,7 @@ object HrMeasurement {
         // present — its lastState is authoritative for this window.
         val offBodySensor = OffBodySensor(context)
         val postureDetector = PostureDetector(context)
+        val skinTempMonitor = SkinTempMonitor(context)
         val samples = mutableListOf<Float>()
         val thread = HandlerThread("bpwatch-hr").apply { start() }
         var postureEval = PostureDetector.Evaluation(
@@ -54,22 +57,26 @@ object HrMeasurement {
             monitor.start(Handler(thread.looper))
             if (offBodySensor.present) offBodySensor.start(Handler(thread.looper))
             postureDetector.start(Handler(thread.looper))
+            skinTempMonitor.start()
             delay(durationMs)
             postureEval = postureDetector.evaluate()
         } finally {
             monitor.stop()
             offBodySensor.stop()
             postureDetector.stop()
+            skinTempMonitor.stop()
             thread.quitSafely()
         }
         val valid = samples.filter { it in 25f..250f }
         if (valid.isEmpty()) return null
+        val skinTempC = skinTempMonitor.getAverageOrLast() ?: 36.6f
         return Result(
             averageHr = valid.average().toFloat(),
             samples = valid,
             offBody = offBodySensor.lastState == false,
             bodyPosition = postureEval.bodyPosition,
             activity = postureEval.activity,
+            skinTempC = skinTempC,
         )
     }
 }

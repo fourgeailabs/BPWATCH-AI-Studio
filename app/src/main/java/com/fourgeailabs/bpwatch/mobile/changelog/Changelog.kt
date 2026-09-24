@@ -20,6 +20,26 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.9.1",
+        versionCode = 62,
+        date = "2026-09-24",
+        notes = listOf(
+            "Fixed check frequency scheduling bug so background checks strictly adhere to the configured interval (e.g. every hour) without checking more frequently than set",
+            "Updated Wear OS app to v2.7.1 (44) and Phone app to v2.9.1 (62)",
+            "Optimized CheckScheduler alarm chaining and background recording cadence bounds",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.9.0",
+        versionCode = 61,
+        date = "2026-09-24",
+        notes = listOf(
+            "Enhanced skin temperature sensor sampling during blood pressure checks so body temperature updates dynamically every time BP is checked rather than once",
+            "Updated Wear OS app to v2.7.0 (43) and Phone app to v2.9.0 (61)",
+            "Integrated continuous temperature logging and synchronization with Health Connect and local Room database",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.8.0",
         versionCode = 60,
         date = "2026-09-23",
