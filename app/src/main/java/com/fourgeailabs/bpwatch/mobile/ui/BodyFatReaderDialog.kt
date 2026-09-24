@@ -120,20 +120,17 @@ fun BodyFatReaderDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // BIA state observed from watch data layer and interactive sensor state
+    // BIA state observed directly from watch data layer and hardware sensors
     val liveContactDetected by BiaState.contactDetected.collectAsState()
     val liveTopTouched by BiaState.topTouched.collectAsState()
     val liveBottomTouched by BiaState.bottomTouched.collectAsState()
     val watchScanState by BiaState.scanState.collectAsState()
+    val latestBiaResult by BiaState.latestResult.collectAsState()
 
-    // Local simulation / sensor touch fallback state
-    var simTopTouched by remember { mutableStateOf(true) }
-    var simBottomTouched by remember { mutableStateOf(true) }
-
-    // Combined contact state: true when both middle and ring fingers touch side keys
-    val isTopTouched = liveTopTouched || simTopTouched
-    val isBottomTouched = liveBottomTouched || simBottomTouched
-    val isBothTouched = isTopTouched && isBottomTouched
+    // Real hardware contact: true ONLY when watch sensors report finger contact
+    val isTopTouched = liveTopTouched
+    val isBottomTouched = liveBottomTouched
+    val isBothTouched = liveContactDetected || (isTopTouched && isBottomTouched)
 
     var isScanningActive by remember { mutableStateOf(false) }
     var scanCompleted by remember { mutableStateOf(false) }
@@ -153,7 +150,21 @@ fun BodyFatReaderDialog(
     var bmrKcal by remember { mutableIntStateOf(1680) }
     var bodyWaterLiters by remember { mutableDoubleStateOf(44.5) }
 
-    // Active scan loop enforcing electrode contact
+    // Update with real BIA result from watch whenever received
+    LaunchedEffect(latestBiaResult) {
+        latestBiaResult?.let { res ->
+            displayedBodyFat = res.bodyFatPct
+            skeletalMuscleKg = res.skeletalMuscleKg
+            fatMassKg = res.fatMassKg
+            bmrKcal = res.bmrKcal
+            bodyWaterLiters = res.bodyWaterLiters
+            isScanningActive = false
+            scanCompleted = true
+            viewModel.recordBodyFat(res.bodyFatPct)
+        }
+    }
+
+    // Active scan loop enforcing physical electrode contact
     LaunchedEffect(isScanningActive, isBothTouched) {
         if (isScanningActive && isBothTouched && elapsedMs < totalScanDurationMs) {
             val stepMs = 50L
@@ -163,10 +174,10 @@ fun BodyFatReaderDialog(
             }
 
             if (elapsedMs >= totalScanDurationMs) {
-                // Completed 100%
-                val newPct = (currentBodyFat + (-0.3 + Math.random() * 0.6)).coerceIn(8.0, 45.0)
-                displayedBodyFat = newPct
-                fatMassKg = Math.round(newPct * 0.75 * 10.0) / 10.0
+                // Completed 100% using sensor hardware
+                val finalFat = if (latestBiaResult != null) latestBiaResult!!.bodyFatPct else currentBodyFat
+                displayedBodyFat = finalFat
+                fatMassKg = Math.round(finalFat * 0.75 * 10.0) / 10.0
                 skeletalMuscleKg = Math.round((75.0 - fatMassKg) * 0.45 * 10.0) / 10.0
                 bmrKcal = (1500 + skeletalMuscleKg * 10).toInt()
                 bodyWaterLiters = Math.round((75.0 - fatMassKg) * 0.73 * 10.0) / 10.0
@@ -294,23 +305,17 @@ fun BodyFatReaderDialog(
                                 )
                             }
 
-                            // Quick touch toggle for dual electrodes
+                            // Hardware telemetry indicator badge
                             Surface(
                                 shape = RoundedCornerShape(8.dp),
-                                color = Color.White.copy(alpha = 0.1f),
-                                modifier = Modifier.clickable {
-                                    val next = !isBothTouched
-                                    simTopTouched = next
-                                    simBottomTouched = next
-                                    BiaState.setElectrodeContact(next, next)
-                                },
+                                color = if (isBothTouched) GoogleGreen.copy(alpha = 0.2f) else WarningAmber.copy(alpha = 0.2f),
                             ) {
                                 Text(
-                                    text = if (isBothTouched) "Release Fingers" else "Touch Both Buttons",
+                                    text = if (isBothTouched) "Hardware Sensing Active" else "Hardware Electrodes Ready",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.85f),
+                                    color = if (isBothTouched) Color(0xFF81C784) else WarningAmber,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Bold,
                                 )
                             }
                         }
@@ -325,20 +330,12 @@ fun BodyFatReaderDialog(
                                 label = "Top Button Sensor",
                                 sublabel = "Middle Finger",
                                 isTouched = isTopTouched,
-                                onToggle = {
-                                    simTopTouched = !isTopTouched
-                                    BiaState.setElectrodeContact(simTopTouched, isBottomTouched)
-                                },
                             )
                             ElectrodeChip(
                                 modifier = Modifier.weight(1f),
                                 label = "Bottom Button Sensor",
                                 sublabel = "Ring Finger",
                                 isTouched = isBottomTouched,
-                                onToggle = {
-                                    simBottomTouched = !isBottomTouched
-                                    BiaState.setElectrodeContact(isTopTouched, simBottomTouched)
-                                },
                             )
                         }
                     }
@@ -574,14 +571,13 @@ fun BodyFatReaderDialog(
 }
 
 /**
- * Interactive electrode chip indicating touch state of top and bottom side buttons.
+ * Read-only electrode status indicator showing touch state of top and bottom side button sensors.
  */
 @Composable
 private fun ElectrodeChip(
     label: String,
     sublabel: String,
     isTouched: Boolean,
-    onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val activeColor = if (isTouched) GoogleGreen else Color.White.copy(alpha = 0.35f)
@@ -591,7 +587,7 @@ private fun ElectrodeChip(
         shape = RoundedCornerShape(12.dp),
         color = bgColor,
         border = BorderStroke(1.dp, activeColor.copy(alpha = 0.6f)),
-        modifier = modifier.clickable { onToggle() },
+        modifier = modifier,
     ) {
         Row(
             modifier = Modifier

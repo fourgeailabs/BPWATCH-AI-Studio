@@ -20,6 +20,26 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.07.08",
+        versionCode = 50,
+        date = "2026-09-23",
+        notes = listOf(
+            "Added interactive Measurement Posture Guide in Settings to educate users on optimal body posture and heart-level wrist placement for accurate blood pressure checks",
+            "Included step-by-step guidance on seated rest, hydrostatic pressure error reduction, stillness during PPG scans, and matching cuff calibration posture",
+            "Added Do vs Don't clinical comparisons and progress indicators in the posture tutorial overlay",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.07",
+        versionCode = 49,
+        date = "2026-09-23",
+        notes = listOf(
+            "Enforced real hardware electrode touch sensing in Body Fat Index reader; eliminated manual touch toggle buttons",
+            "Automatic scan pause/stop and warning prompt whenever fingers lose contact with top/bottom watch buttons",
+            "Moved sensor orientation bias (wrist) exclusively into the Watch card settings screen and removed duplicates from Settings hub and Monitoring & Alerts",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.06",
         versionCode = 48,
         date = "2026-09-23",

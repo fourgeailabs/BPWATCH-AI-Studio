@@ -18,7 +18,18 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.07.06 (Current)
+### v2.07.08 (Current)
+- **Interactive Measurement Posture Guide**: Added a dedicated **Measurement posture** card in Settings that launches an interactive 4-step tutorial overlay (`PostureTutorialDialog.kt`).
+- **Optimal Ergonomics & Heart-Level Positioning**: Guides users through 5-minute seated rest, heart-level watch wrist alignment to prevent ~10 mmHg hydrostatic errors, complete stillness during optical checks, and matching cuff calibration posture.
+- **Clinical Explanations & Do/Don't Lists**: Displays key clinical reasoning, Do vs. Don't lists, and progress tracking for every posture step.
+
+### v2.07.07
+- **Strict Hardware Electrode Contact Sensing**: Made electrode status indicators read-only indicators driven purely by physical sensor contact on watch side buttons. Removed manual simulation touch buttons.
+- **Auto-Pause on Contact Loss**: When fingers lose contact with watch side buttons, the BIA scan progress automatically pauses immediately and prompts the user to place fingers back on the watch side buttons.
+- **Real BIA Measurement Integration**: Eliminates random pseudo-scans when watch is off the body and saves actual bioimpedance composition metrics.
+- **Moved Sensor Orientation Bias**: Sensor orientation bias setting is now exclusively located in the Watch app card in Settings and removed from Monitoring & Alerts and the main Settings hub.
+
+### v2.07.06
 - **Settings Home Card**: Renamed the settings customization section card to **Home** with a dedicated home icon (`Icons.Filled.Home`).
 - **Home Customization View**: Tapping the **Home** card in Settings opens the customization interface where users can choose which cards appear on the Home screen and arrange their exact order.
 - **System Back & Back Navigation Header**: Added a top Back arrow button and system `BackHandler` to return seamlessly to Settings.

@@ -28,7 +28,12 @@ import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -92,10 +97,17 @@ fun SettingsScreen(
     onOpenReminders: () -> Unit = {},
     onOpenHomeLayout: () -> Unit = {},
 ) {
+    var showPostureTutorial by remember { mutableStateOf(false) }
+
+    if (showPostureTutorial) {
+        PostureTutorialDialog(onDismiss = { showPostureTutorial = false })
+    }
+
     // v2.4.0: Settings is a hub — every section is a clickable card that
     // opens that section's own screen (back button returns here).
     val sections = listOf(
         Quad(Icons.Filled.Watch, "Watch app", "Watch location, calibrations, sync & updates", onOpenWatch),
+        Quad(Icons.Filled.SelfImprovement, "Measurement posture", "Interactive guide to heart-level positioning for reliable BP readings", { showPostureTutorial = true }),
         Quad(Icons.Filled.Person, "Body profile", "Height, weight, age, sex and BMI", onOpenProfile),
         Quad(Icons.Filled.Favorite, "Connections", "Samsung Health and Health Connect", onOpenConnections),
         Quad(Icons.Filled.MonitorHeart, "Monitoring & alerts", "Check schedule, thresholds, alerts", onOpenMonitoring),
@@ -114,12 +126,6 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
-
-        // Wrist sensor orientation bias toggle in settings menu
-        WristOrientationCard(
-            wrist = wrist,
-            onWristChange = onWristChange,
-        )
 
         sections.forEach { (icon, title, subtitle, onClick) ->
             ElevatedCard(
@@ -556,43 +562,6 @@ fun MonitoringCard(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            MonitoringSubHeader("Sensor orientation bias (wrist)")
-            Text(
-                "Explicitly select 'Left' or 'Right' wrist to adjust the sensor orientation bias in the motion and posture data processing algorithms, and log the correct body side in Health Connect.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            ) {
-                val isLeft = !wrist.equals("right", ignoreCase = true)
-                SegmentedButton(
-                    selected = isLeft,
-                    onClick = { onWristChange("left") },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                    icon = { SegmentedButtonDefaults.Icon(active = isLeft) },
-                    label = { Text("Left wrist") },
-                )
-                SegmentedButton(
-                    selected = !isLeft,
-                    onClick = { onWristChange("right") },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                    icon = { SegmentedButtonDefaults.Icon(active = !isLeft) },
-                    label = { Text("Right wrist") },
-                )
-            }
-            val currentWristLabel = if (wrist.equals("right", ignoreCase = true))
-                "Right wrist (mirrored lateral axis active)"
-            else
-                "Left wrist (standard orientation active)"
-            Text(
-                "Active algorithm bias: $currentWristLabel",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-
-            Spacer(Modifier.height(4.dp))
 
             SwitchRow(
                 headline = "Continuous heart rate",
