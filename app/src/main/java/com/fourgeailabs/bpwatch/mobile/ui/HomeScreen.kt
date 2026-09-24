@@ -376,6 +376,21 @@ fun HomeScreen(
                         com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.SNORE_CARD -> {
                             SnoreCard(viewModel = viewModel, onOpenSnore = onOpenSnore)
                         }
+                        com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.EKG_CARD -> {
+                            com.fourgeailabs.bpwatch.mobile.ui.components.EkgCard(
+                                onRecordEkgClick = {
+                                    Toast.makeText(context, "Requesting EKG recording from watch via SHM-MOD ECG sensor...", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+                        com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.ACTIVE_SENSORS -> {
+                            com.fourgeailabs.bpwatch.mobile.ui.components.ActiveSensorsIndicatorCard(
+                                isEkgActive = true,
+                                isBpActive = true,
+                                isBodyFatActive = true,
+                                isSkinTempActive = true
+                            )
+                        }
                         com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.DISCLAIMER -> {
                             Text(
                                 "BPWatch gives wellness estimates from your own cuff calibration. " +

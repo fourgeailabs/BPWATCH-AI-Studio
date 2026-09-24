@@ -234,6 +234,10 @@ class HourlyCheckReceiver : BroadcastReceiver() {
                         StepsReporter.maybeReport(context.applicationContext)
                     } catch (_: Exception) {
                     }
+                    try {
+                        SleepTracker.checkAndSyncSleep(context.applicationContext)
+                    } catch (_: Exception) {
+                    }
                     CheckScheduler.chainNext(context)
                 }
             } catch (_: Exception) {

@@ -1097,6 +1097,29 @@ class HealthConnectManager(private val context: Context) {
         )
     }
 
+    /** Logs a skin temperature entry to Health Connect. Throws on failure. */
+    suspend fun writeSkinTemperature(skinTempC: Float, time: Instant) {
+        val zoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+        val deltaValue = androidx.health.connect.client.units.TemperatureDelta.celsius((skinTempC - 36.5).toDouble())
+        client.insertRecords(
+            listOf(
+                SkinTemperatureRecord(
+                    startTime = time,
+                    startZoneOffset = zoneOffset,
+                    endTime = time,
+                    endZoneOffset = zoneOffset,
+                    baseline = androidx.health.connect.client.units.Temperature.celsius(36.5),
+                    deltas = listOf(
+                        SkinTemperatureRecord.Delta(
+                            time = time,
+                            delta = deltaValue
+                        )
+                    )
+                )
+            )
+        )
+    }
+
     /** Re-exported so the UI layer doesn't need the HC import for meal types. */
     object FoodMeal {
         const val BREAKFAST = MealType.MEAL_TYPE_BREAKFAST

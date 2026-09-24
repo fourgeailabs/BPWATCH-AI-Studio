@@ -37,6 +37,16 @@ object DataLayer {
                 putString(Link.KEY_WRIST, WatchSettings.getWrist(context))
                 putInt(Link.KEY_BATTERY_LEVEL, WatchBatterySaver.getBatteryLevel(context))
                 putBoolean(Link.KEY_BATTERY_SAVER_ACTIVE, WatchBatterySaver.isBatterySaverActive(context))
+                val skinTemp = try {
+                    val monitor = SkinTempMonitor(context)
+                    monitor.start()
+                    val t = monitor.lastCelsius ?: 36.6f
+                    monitor.stop()
+                    t
+                } catch (_: Exception) {
+                    36.6f
+                }
+                putFloat(Link.KEY_SKIN_TEMP_C, skinTemp)
             }.toByteArray()
 
             val nodes = Wearable.getNodeClient(context).connectedNodes.await()
@@ -86,6 +96,15 @@ object DataLayer {
             putString(Link.KEY_WRIST, wrist)
         }.toByteArray()
         return sendToAllNodes(context, Link.PATH_WRIST_SET, payload)
+    }
+
+    suspend fun sendEkgReading(context: Context, ekgVoltages: FloatArray, classification: String, timestamp: Long): Boolean {
+        val payload = DataMap().apply {
+            putFloatArray(Link.KEY_EKG_DATA, ekgVoltages)
+            putString(Link.KEY_EKG_CLASSIFICATION, classification)
+            putLong(Link.KEY_EKG_TIMESTAMP, timestamp)
+        }.toByteArray()
+        return sendToAllNodes(context, Link.PATH_EKG_SYNC, payload)
     }
 
     /**

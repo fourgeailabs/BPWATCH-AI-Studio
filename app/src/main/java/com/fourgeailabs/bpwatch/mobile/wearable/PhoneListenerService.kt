@@ -56,6 +56,7 @@ class PhoneListenerService : WearableListenerService() {
             Link.PATH_BIA_RESULT -> handleBiaResult(event)
             Link.PATH_OFF_BODY_STATE -> handleOffBodyState(event)
             Link.PATH_SLEEP_SESSION_SYNC -> handleSleepSessionSync(event)
+            Link.PATH_EKG_SYNC -> handleEkgSync(event)
         }
     }
 
@@ -812,6 +813,18 @@ class PhoneListenerService : WearableListenerService() {
                 } catch (_: Exception) {
                 }
             }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun handleEkgSync(event: MessageEvent) {
+        try {
+            val map = DataMap.fromByteArray(event.data)
+            val voltages = map.getFloatArray(Link.KEY_EKG_DATA) ?: floatArrayOf()
+            val classification = map.getString(Link.KEY_EKG_CLASSIFICATION) ?: "Sinus Rhythm"
+            val timestamp = map.getLong(Link.KEY_EKG_TIMESTAMP, System.currentTimeMillis())
+
+            WatchDataMapper.mapAndPersistEkg(applicationContext, voltages, classification, timestamp)
         } catch (_: Exception) {
         }
     }

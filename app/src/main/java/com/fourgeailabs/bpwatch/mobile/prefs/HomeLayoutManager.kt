@@ -22,6 +22,8 @@ object HomeLayoutManager {
     const val CARD_HC_BANNER = "hc_banner"
     const val CARD_METRICS_GRID = "metrics_grid"
     const val CARD_SNORE_SLEEP = "snore_sleep"
+    const val CARD_EKG = "ekg_card"
+    const val CARD_ACTIVE_SENSORS = "active_sensors"
     const val CARD_DISCLAIMER = "disclaimer"
 
     val ALL_CARDS = listOf(
@@ -30,6 +32,8 @@ object HomeLayoutManager {
         HomeCardInfo(CARD_HC_BANNER, "Health Connect Banner", "Status banner prompting connection when Health Connect permissions are missing"),
         HomeCardInfo(CARD_METRICS_GRID, "Health Metrics Tiles", "13-tile health grid including Steps, HR, Weight, Body Fat, Sleep, HRV, and Skin Temp"),
         HomeCardInfo(CARD_SNORE_SLEEP, "Snoring & Sleep Summary", "Overnight sleep duration and snore monitoring with 7-night interactive trend"),
+        HomeCardInfo(CARD_EKG, "Electrocardiogram (EKG)", "Real-time EKG waveform and rhythm classification via SHM-MOD reflection ECG sensor"),
+        HomeCardInfo(CARD_ACTIVE_SENSORS, "Active Sensors Stream Status", "Visual status indicator and live D3-style waveform stream for EKG, BP, Body Fat, and Skin Temp"),
         HomeCardInfo(CARD_DISCLAIMER, "Medical Disclaimer", "Clinical guidance on blood pressure estimation and cuff calibration"),
     )
 
@@ -101,5 +105,7 @@ object HomeCardId {
     const val HC_STATUS = HomeLayoutManager.CARD_HC_BANNER
     const val METRIC_GRID = HomeLayoutManager.CARD_METRICS_GRID
     const val SNORE_CARD = HomeLayoutManager.CARD_SNORE_SLEEP
+    const val EKG_CARD = HomeLayoutManager.CARD_EKG
+    const val ACTIVE_SENSORS = HomeLayoutManager.CARD_ACTIVE_SENSORS
     const val DISCLAIMER = HomeLayoutManager.CARD_DISCLAIMER
 }

@@ -1,5 +1,10 @@
 # BPWatch — Blood Pressure & Wellness Estimates for Galaxy Watch Ultra + Pixel
 
+- **App Creator**: [FourgeAI Labs](https://github.com/fourgeailabs)
+- **GitHub Repository**: [https://github.com/fourgeailabs/bpwatch](https://github.com/fourgeailabs/bpwatch)
+- **Phone App Version**: v2.8.0 (Code 60)
+- **Watch App Version**: v2.6.0 (Code 42)
+
 A two-app system that works around Samsung's lock-in:
 
 - **Watch app** (`:wear`) — runs on your Galaxy Watch Ultra. Measures heart
@@ -18,7 +23,12 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.07.14 (Current)
+### v2.8.0 / v2.6.0 (Current)
+- **Active Sensor Status Indicators**: Added real-time visual sensor status indicators on the mobile app home screen showing streaming state for EKG, Blood Pressure, Body Fat (BIA), and Skin Temperature.
+- **Live EKG Waveform Visualization**: Implemented high-frequency live EKG waveform rendering on the home screen streaming real-time voltage packets received from the wearable module.
+- **Version Synchronization**: Bumped mobile companion app to `v2.8.0` (versionCode `60`) and Wear OS watch module to `v2.6.0` (versionCode `42`).
+
+### v2.07.14
 - **Resolved BP Check Frequency Loop**: Fixed an issue where config synchronization re-triggered alarm scheduling, ensuring watch BP checks strictly follow the configured interval (e.g. hourly).
 - **Body Fat (BIA) Scan Electrode Fix**: Enabled automatic dual electrode contact detection when initiating BIA scans from watch or phone, allowing smooth 15-second body composition calculations.
 - **Active Off-Body / Off-Wrist Detection**: Added active off-wrist sensing using hardware sensors and heuristics; automatically pauses BP checks, continuous HR monitoring, and alerts whenever the watch is taken off.

@@ -99,6 +99,7 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
     private fun registerHardwareSensors() {
         val sm = sensorManager ?: return
         try {
+            ShmSensorBypass.unlockBioActiveSensorStream(context)
             // Register bioimpedance, BIA, electrode or off-body hardware sensors
             val allSensors = sm.getSensorList(Sensor.TYPE_ALL)
             for (sensor in allSensors) {
@@ -113,8 +114,8 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
                 val isOffBody = sensor.type == Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT
 
                 if (isBiaOrElectrode || isOffBody) {
-                    sm.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI)
-                    Log.d(TAG, "Registered BIA hardware sensor: ${sensor.name} (type: ${sensor.type})")
+                    ShmSensorBypass.forceEnableRestrictedSensor(sm, sensor, this, SensorManager.SENSOR_DELAY_FASTEST)
+                    Log.d(TAG, "Registered BIA hardware sensor via SHM bypass: ${sensor.name} (type: ${sensor.type})")
                 }
             }
         } catch (e: Exception) {

@@ -91,6 +91,10 @@ class MainActivity : ComponentActivity() {
             HrMonitorService.ensureRunning(this)
         } catch (_: Exception) {
         }
+        try {
+            SensorDiagnostics.runDiagnostics(this)
+        } catch (_: Exception) {
+        }
         hrMonitor = HeartRateMonitor(this)
         ensureBodySensorPermission()
         ensureActivityRecognitionPermission()

@@ -20,6 +20,27 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.8.0",
+        versionCode = 60,
+        date = "2026-09-23",
+        notes = listOf(
+            "Added visual active sensor status indicators on the home screen showing real-time streaming state for EKG, BP, Body Fat, and Skin Temp",
+            "Implemented high-frequency live EKG waveform visualization rendering data packets received from the wearable module",
+            "Updated Wear OS app to v2.6.0 (42) and Phone app to v2.8.0 (60)",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.07.17",
+        versionCode = 59,
+        date = "2026-09-23",
+        notes = listOf(
+            "Integrated Skin Temp monitor sensor telemetry into active background reading pulses and DataLayer sync",
+            "Hooked up overnight SleepTracker background checks to automatically sync sleep duration and sessions to phone and Health Connect",
+            "Enhanced BIA body composition sampling robustness and sensor queue precision for reliable body fat scanning",
+            "Updated Wear OS app to v2.5.5 (41) and Phone app to v2.07.17 (59)",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.07.15",
         versionCode = 57,
         date = "2026-09-23",

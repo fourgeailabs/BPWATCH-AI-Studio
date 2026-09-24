@@ -222,11 +222,15 @@ object Link {
     const val PATH_SENSOR_TELEMETRY = "/bpwatch/sensor_telemetry"
     const val PATH_OFF_BODY_STATE = "/bpwatch/off_body_state"
     const val PATH_SLEEP_SESSION_SYNC = "/bpwatch/sleep_session_sync"
+    const val PATH_EKG_SYNC = "/bpwatch/ekg_sync"
 
     const val KEY_IS_OFF_BODY = "is_off_body"
     const val KEY_SLEEP_START = "sleep_start"
     const val KEY_SLEEP_END = "sleep_end"
     const val KEY_SLEEP_MINUTES = "sleep_minutes"
+    const val KEY_EKG_DATA = "ekg_data"
+    const val KEY_EKG_CLASSIFICATION = "ekg_classification"
+    const val KEY_EKG_TIMESTAMP = "ekg_timestamp"
 
     // ------------------------------------------------------------------
     // Body Fat / BIA Electrodes & Scan contract (v2.7.4)
