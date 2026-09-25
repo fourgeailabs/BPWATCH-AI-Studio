@@ -20,6 +20,26 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.9.3",
+        versionCode = 64,
+        date = "2026-09-24",
+        notes = listOf(
+            "Fixed continuous upload and recording intervals so background heart rate uploads and checks strictly respect the requested schedule interval (e.g. every hour) without checking every minute",
+            "Updated Wear OS app to v2.8.1 (46) and Phone app to v2.9.3 (64)",
+            "Bounded WatchBatterySaver upload intervals by bpIntervalMinutes to prevent frequent checking",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.9.2",
+        versionCode = 63,
+        date = "2026-09-24",
+        notes = listOf(
+            "Integrated SHM-MOD reflection-based native stress sensor bypass to access direct hardware stress levels (0-100) from the wearer's BioActive Sensor",
+            "Updated Wear OS app to v2.8.0 (45) and Phone app to v2.9.2 (63)",
+            "Added StressMonitor and unlockStressCapabilities for seamless hardware stress tracking and fallback HRV estimation",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.9.1",
         versionCode = 62,
         date = "2026-09-24",

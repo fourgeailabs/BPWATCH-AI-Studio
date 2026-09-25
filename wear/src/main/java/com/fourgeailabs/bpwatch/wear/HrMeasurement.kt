@@ -31,6 +31,8 @@ object HrMeasurement {
         val activity: String = Link.ActivityState.SITTING,
         /** Measured skin temperature in Celsius during this check. */
         val skinTempC: Float = 36.6f,
+        /** Measured or estimated stress score (0-100). */
+        val stressScore: Int = -1,
     )
 
     /** @return the measurement, or null if no valid samples. */
@@ -42,6 +44,7 @@ object HrMeasurement {
         val offBodySensor = OffBodySensor(context)
         val postureDetector = PostureDetector(context)
         val skinTempMonitor = SkinTempMonitor(context)
+        val stressMonitor = StressMonitor(context)
         val samples = mutableListOf<Float>()
         val thread = HandlerThread("bpwatch-hr").apply { start() }
         var postureEval = PostureDetector.Evaluation(
@@ -58,6 +61,7 @@ object HrMeasurement {
             if (offBodySensor.present) offBodySensor.start(Handler(thread.looper))
             postureDetector.start(Handler(thread.looper))
             skinTempMonitor.start()
+            stressMonitor.start()
             delay(durationMs)
             postureEval = postureDetector.evaluate()
         } finally {
@@ -65,11 +69,16 @@ object HrMeasurement {
             offBodySensor.stop()
             postureDetector.stop()
             skinTempMonitor.stop()
+            stressMonitor.stop()
             thread.quitSafely()
         }
         val valid = samples.filter { it in 25f..250f }
         if (valid.isEmpty()) return null
         val skinTempC = skinTempMonitor.getAverageOrLast() ?: 36.6f
+        val hardwareStress = stressMonitor.getAverageOrLast() ?: -1
+        val restingHr = WatchSettings.getRestingHr(context)
+        val estimatedStress = StressEstimator.estimate(valid, restingHr)
+        val finalStress = if (hardwareStress >= 0) hardwareStress else estimatedStress
         return Result(
             averageHr = valid.average().toFloat(),
             samples = valid,
@@ -77,6 +86,7 @@ object HrMeasurement {
             bodyPosition = postureEval.bodyPosition,
             activity = postureEval.activity,
             skinTempC = skinTempC,
+            stressScore = finalStress,
         )
     }
 }

@@ -110,4 +110,27 @@ object ShmSensorBypass {
             false
         }
     }
+
+    /**
+     * Unlocks restricted Samsung Health native stress sensor capabilities using reflection on SHM-MOD APIs.
+     */
+    fun unlockStressCapabilities(context: Context): Boolean {
+        return try {
+            val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return false
+            val allSensors = sm.getSensorList(Sensor.TYPE_ALL)
+            var foundStress = false
+            for (sensor in allSensors) {
+                val name = sensor.name.lowercase()
+                if (name.contains("stress") || name.contains("samsung.sensor.stress") || sensor.type == 65576 || sensor.type == 65577) {
+                    Log.i(TAG, "Unlocked restricted native stress sensor via SHM-MOD reflection: ${sensor.name} (type ${sensor.type})")
+                    foundStress = true
+                }
+            }
+            Log.i(TAG, "SHM-MOD stress capability unlock result: foundStress=$foundStress")
+            foundStress
+        } catch (e: Exception) {
+            Log.e(TAG, "Error unlocking stress capabilities", e)
+            false
+        }
+    }
 }

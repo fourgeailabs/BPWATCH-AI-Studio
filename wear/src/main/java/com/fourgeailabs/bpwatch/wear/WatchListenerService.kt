@@ -498,10 +498,14 @@ class WatchListenerService : WearableListenerService() {
             } catch (_: Exception) {
             }
             val stress = try {
-                StressEstimator.estimate(
-                    result.samples,
-                    WatchSettings.getRestingHr(this),
-                )
+                if (result.stressScore >= 0) {
+                    result.stressScore
+                } else {
+                    StressEstimator.estimate(
+                        result.samples,
+                        WatchSettings.getRestingHr(this),
+                    )
+                }
             } catch (_: Exception) {
                 -1
             }

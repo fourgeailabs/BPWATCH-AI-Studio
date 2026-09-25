@@ -186,7 +186,7 @@ class RecordSampleReceiver : BroadcastReceiver() {
                     }
                     OffBodyDetector.noteValidSignal(context)
                     val restingHr = WatchSettings.getRestingHr(context)
-                    val stress = StressEstimator.estimate(result.samples, restingHr)
+                    val stress = if (result.stressScore >= 0) result.stressScore else StressEstimator.estimate(result.samples, restingHr)
                     SampleStore.append(
                         context.applicationContext,
                         SampleStore.Sample(

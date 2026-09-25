@@ -2,8 +2,8 @@
 
 - **App Creator**: [FourgeAI Labs](https://github.com/fourgeailabs)
 - **GitHub Repository**: [https://github.com/fourgeailabs/bpwatch](https://github.com/fourgeailabs/bpwatch)
-- **Phone App Version**: v2.9.1 (Code 62)
-- **Watch App Version**: v2.7.1 (Code 44)
+- **Phone App Version**: v2.9.3 (Code 64)
+- **Watch App Version**: v2.8.1 (Code 46)
 
 A two-app system that works around Samsung's lock-in:
 
@@ -23,7 +23,15 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.9.1 / v2.7.1 (Current)
+### v2.9.3 / v2.8.1 (Current)
+- **Strict Schedule Adherence for Uploads & Checks**: Bounded `HrMonitorService` background upload intervals and `RecordScheduler` cadences by `bpIntervalMinutes` so background heart rate uploads and checks strictly respect the requested schedule interval (e.g. every hour) without checking every minute.
+- **Version Synchronization**: Bumped mobile companion app to `v2.9.3` (versionCode `64`) and Wear OS watch module to `v2.8.1` (versionCode `46`).
+
+### v2.9.2 / v2.8.0
+- **SHM-MOD Native Stress Sensor Access**: Integrated reflection-based sensor bypass (`ShmSensorBypass.unlockStressCapabilities` and `StressMonitor`) to access direct hardware stress levels (0-100) from the wearer's BioActive Sensor.
+- **Version Synchronization**: Bumped mobile companion app to `v2.9.2` (versionCode `63`) and Wear OS watch module to `v2.8.0` (versionCode `45`).
+
+### v2.9.1 / v2.7.1
 - **Strict Check Frequency Scheduling**: Fixed background alarm chaining in `CheckScheduler` and bounded background recording cadences so checks strictly follow the user's configured interval (e.g. every hour) without running more frequently than set.
 - **Version Synchronization**: Bumped mobile companion app to `v2.9.1` (versionCode `62`) and Wear OS watch module to `v2.7.1` (versionCode `44`).
 

@@ -206,7 +206,7 @@ class HourlyCheckReceiver : BroadcastReceiver() {
                         result.averageHr,
                     )
                     val restingHr = WatchSettings.getRestingHr(context)
-                    val stress = StressEstimator.estimate(result.samples, restingHr)
+                    val stress = if (result.stressScore >= 0) result.stressScore else StressEstimator.estimate(result.samples, restingHr)
                     // (K) Persist the reading so the home screen shows the
                     // latest HR on launch, like every other measurement path.
                     try {

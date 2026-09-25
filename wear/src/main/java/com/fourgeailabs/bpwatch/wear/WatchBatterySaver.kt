@@ -119,7 +119,21 @@ object WatchBatterySaver {
      * Interval for continuous HR upload averaging.
      */
     fun getUploadIntervalMs(context: Context): Long {
-        return if (isBatterySaverActive(context)) UPLOAD_SAVER_MS else UPLOAD_NORMAL_MS
+        val configIntervalMinutes = try {
+            WatchSettings.getMonitorConfig(context).bpIntervalMinutes
+        } catch (_: Exception) {
+            0
+        }
+        val normalUpload = if (configIntervalMinutes > 0) {
+            maxOf(UPLOAD_NORMAL_MS, configIntervalMinutes * 60_000L)
+        } else {
+            UPLOAD_NORMAL_MS
+        }
+        return if (isBatterySaverActive(context)) {
+            maxOf(normalUpload, UPLOAD_SAVER_MS)
+        } else {
+            normalUpload
+        }
     }
 
     /**
