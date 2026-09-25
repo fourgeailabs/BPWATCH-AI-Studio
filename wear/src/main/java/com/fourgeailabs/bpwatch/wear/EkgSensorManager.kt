@@ -72,13 +72,12 @@ class EkgSensorManager(private val context: Context, private val onEkgComplete: 
         isRecording = false
         sensorManager?.unregisterListener(this)
         val result = if (samples.isNotEmpty()) samples.toFloatArray() else floatArrayOf(0f)
-        val classification = analyzeEkg(result)
-        onEkgComplete(result, classification)
+        val analysis = EkgAnalyzer.analyze(result)
+        onEkgComplete(analysis.voltages, analysis.classification)
     }
 
     private fun analyzeEkg(data: FloatArray): String {
-        val maxPeak = data.maxOrNull() ?: 0f
-        return if (maxPeak > 1.0f) "Sinus Rhythm" else "Inconclusive / Check Contact"
+        return EkgAnalyzer.analyze(data).classification
     }
 
     override fun onSensorChanged(event: SensorEvent?) {

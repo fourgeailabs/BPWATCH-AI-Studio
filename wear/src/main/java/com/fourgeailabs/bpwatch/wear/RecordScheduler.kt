@@ -166,7 +166,34 @@ class RecordSampleReceiver : BroadcastReceiver() {
                         return@runBlocking
                     }
                     if (WatchState.isOffBody.value || OffBodyDetector.isPausedByHeuristic(context)) {
-                        Log.i(TAG, "Recording tick skipped — watch is off-wrist")
+                        Log.i(TAG, "Recording tick skipped — watch is off-body/off-wrist")
+                        RecordScheduler.chainNext(context)
+                        return@runBlocking
+                    }
+                    val offBodySensor = OffBodySensor(context)
+                    val isOffBodyPreCheck = run {
+                        var off = false
+                        if (offBodySensor.present) {
+                            val thread = android.os.HandlerThread("bpwatch-offbody").apply { start() }
+                            try {
+                                val latch = java.util.concurrent.CountDownLatch(1)
+                                offBodySensor.onState = { onBody ->
+                                    off = !onBody
+                                    latch.countDown()
+                                }
+                                offBodySensor.start(android.os.Handler(thread.looper))
+                                latch.await(1500L, java.util.concurrent.TimeUnit.MILLISECONDS)
+                            } catch (_: Exception) {
+                            } finally {
+                                offBodySensor.stop()
+                                thread.quitSafely()
+                            }
+                        }
+                        off
+                    }
+                    if (isOffBodyPreCheck) {
+                        val streak = OffBodyDetector.noteEmptyAttempt(context)
+                        Log.i(TAG, "Recording tick skipped — watch appears off-wrist (hardware pre-check)")
                         RecordScheduler.chainNext(context)
                         return@runBlocking
                     }

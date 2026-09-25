@@ -12,8 +12,8 @@ android {
     applicationId = "com.fourgeailabs.bpwatch"
     minSdk = 26
     targetSdk = 34
-    versionCode = 64
-    versionName = "2.9.3"
+    versionCode = 68
+    versionName = "2.11.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

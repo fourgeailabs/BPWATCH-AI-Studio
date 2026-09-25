@@ -2,8 +2,8 @@
 
 - **App Creator**: [FourgeAI Labs](https://github.com/fourgeailabs)
 - **GitHub Repository**: [https://github.com/fourgeailabs/bpwatch](https://github.com/fourgeailabs/bpwatch)
-- **Phone App Version**: v2.9.3 (Code 64)
-- **Watch App Version**: v2.8.1 (Code 46)
+- **Phone App Version**: v2.11.0 (Code 68)
+- **Watch App Version**: v2.10.0 (Code 50)
 
 A two-app system that works around Samsung's lock-in:
 
@@ -23,7 +23,20 @@ adjust medication. Always confirm with a cuff.
 
 ## Recent Updates
 
-### v2.9.3 / v2.8.1 (Current)
+### v2.11.0 / v2.10.0 (Current)
+- **Real Data Enforcement for Health Card & BIA Scanner**: Upgraded `BiaSensorManager` and `BodyFatReaderDialog` to obtain real bioimpedance sensor data from Galaxy Watch Ultra BIA/MF-BIA sensors with strict real-data-only enforcement.
+- **Removed Hardcoded Fallbacks**: Eliminated hardcoded placeholder body composition values; now correctly reports "Measurement unavailable" / "Connect your Galaxy Watch to measure" when real sensor data is absent.
+- **Version Synchronization**: Updated Phone app to `v2.11.0` (versionCode `68`) and Wear OS watch module to `v2.10.0` (versionCode `50`).
+
+### v2.9.5 / v2.8.3
+- **SHealth-Companion EKG Sync & Clinical Analysis**: Integrated SHealth-Companion EKG data sync (`SHealthEkgSync`) and clinical EKG analysis engine (`EkgAnalyzer`) featuring bandpass filtering, Pan-Tompkins R-peak detection, PR/QRS/QT interval calculation, and precise rhythm classification (Sinus Rhythm, AFib, Bradycardia, Tachycardia).
+- **Version Synchronization**: Bumped mobile companion app to `v2.9.5` (versionCode `66`) and Wear OS watch module to `v2.8.3` (versionCode `48`).
+
+### v2.9.4 / v2.8.2
+- **Strict Off-Body Pre-Check**: Implemented hardware off-body pre-checks prior to measurement execution in `HourlyCheckReceiver` so the watch never scans or powers on optical sensors when not being worn, preventing off-body measurements from polluting historical logs.
+- **Version Synchronization**: Bumped mobile companion app to `v2.9.4` (versionCode `65`) and Wear OS watch module to `v2.8.2` (versionCode `47`).
+
+### v2.9.3 / v2.8.1
 - **Strict Schedule Adherence for Uploads & Checks**: Bounded `HrMonitorService` background upload intervals and `RecordScheduler` cadences by `bpIntervalMinutes` so background heart rate uploads and checks strictly respect the requested schedule interval (e.g. every hour) without checking every minute.
 - **Version Synchronization**: Bumped mobile companion app to `v2.9.3` (versionCode `64`) and Wear OS watch module to `v2.8.1` (versionCode `46`).
 

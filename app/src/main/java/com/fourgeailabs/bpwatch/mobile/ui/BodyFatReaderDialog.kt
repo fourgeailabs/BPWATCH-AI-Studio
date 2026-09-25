@@ -141,14 +141,13 @@ fun BodyFatReaderDialog(
     val progress = (elapsedMs / totalScanDurationMs.toFloat()).coerceIn(0f, 1f)
     val remainingSeconds = ((totalScanDurationMs - elapsedMs).coerceAtLeast(0L) / 1000L)
 
-    // Current and scanned body metrics
+    // Current and scanned body metrics (Real data only)
     val dashboard by viewModel.dashboard.collectAsState()
-    val currentBodyFat = dashboard.bodyFatPercentage ?: 21.4
-    var displayedBodyFat by remember { mutableDoubleStateOf(currentBodyFat) }
-    var skeletalMuscleKg by remember { mutableDoubleStateOf(32.8) }
-    var fatMassKg by remember { mutableDoubleStateOf(16.2) }
-    var bmrKcal by remember { mutableIntStateOf(1680) }
-    var bodyWaterLiters by remember { mutableDoubleStateOf(44.5) }
+    var displayedBodyFat by remember { mutableStateOf<Double?>(dashboard.bodyFatPercentage) }
+    var skeletalMuscleKg by remember { mutableStateOf<Double?>(null) }
+    var fatMassKg by remember { mutableStateOf<Double?>(null) }
+    var bmrKcal by remember { mutableStateOf<Int?>(null) }
+    var bodyWaterLiters by remember { mutableStateOf<Double?>(null) }
 
     // Update with real BIA result from watch whenever received
     LaunchedEffect(latestBiaResult) {
@@ -174,22 +173,11 @@ fun BodyFatReaderDialog(
             }
 
             if (elapsedMs >= totalScanDurationMs) {
-                // Completed 100% using sensor hardware
-                val finalFat = if (latestBiaResult != null) latestBiaResult!!.bodyFatPct else currentBodyFat
-                displayedBodyFat = finalFat
-                fatMassKg = Math.round(finalFat * 0.75 * 10.0) / 10.0
-                skeletalMuscleKg = Math.round((75.0 - fatMassKg) * 0.45 * 10.0) / 10.0
-                bmrKcal = (1500 + skeletalMuscleKg * 10).toInt()
-                bodyWaterLiters = Math.round((75.0 - fatMassKg) * 0.73 * 10.0) / 10.0
-
-                scope.launch {
-                    try {
-                        viewModel.recordBodyFat(displayedBodyFat)
-                    } catch (_: Exception) {
-                    }
-                }
+                // Completed 100% scan waiting for real BIA result from watch
                 isScanningActive = false
-                scanCompleted = true
+                if (latestBiaResult != null) {
+                    scanCompleted = true
+                }
             }
         }
     }
@@ -427,29 +415,40 @@ fun BodyFatReaderDialog(
                             )
 
                             Text(
-                                text = String.format(Locale.US, "%.1f%%", displayedBodyFat),
-                                style = MaterialTheme.typography.displayMedium,
-                                color = Color(0xFFFFA726),
+                                text = if (displayedBodyFat != null) String.format(Locale.US, "%.1f%%", displayedBodyFat) else "Measurement unavailable",
+                                style = if (displayedBodyFat != null) MaterialTheme.typography.displayMedium else MaterialTheme.typography.titleMedium,
+                                color = if (displayedBodyFat != null) Color(0xFFFFA726) else Color.White.copy(alpha = 0.7f),
                                 fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
                             )
 
-                            val category = when {
-                                displayedBodyFat < 14.0 -> "Athletic / Low"
-                                displayedBodyFat < 24.0 -> "Optimal Fitness"
-                                displayedBodyFat < 31.0 -> "Average Range"
-                                else -> "Elevated"
-                            }
+                            if (displayedBodyFat != null) {
+                                val fatVal = displayedBodyFat!!
+                                val category = when {
+                                    fatVal < 14.0 -> "Athletic / Low"
+                                    fatVal < 24.0 -> "Optimal Fitness"
+                                    fatVal < 31.0 -> "Average Range"
+                                    else -> "Elevated"
+                                }
 
-                            Surface(
-                                color = Color(0xFFFFA726).copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(8.dp),
-                            ) {
+                                Surface(
+                                    color = Color(0xFFFFA726).copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(8.dp),
+                                ) {
+                                    Text(
+                                        text = category,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color(0xFFFFA726),
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    )
+                                }
+                            } else {
                                 Text(
-                                    text = category,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color(0xFFFFA726),
-                                    fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    text = "Connect your Galaxy Watch to measure",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    textAlign = TextAlign.Center,
                                 )
                             }
                         }
@@ -464,14 +463,14 @@ fun BodyFatReaderDialog(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Filled.FitnessCenter,
                             title = "Skeletal Muscle",
-                            value = "${skeletalMuscleKg} kg",
+                            value = skeletalMuscleKg?.let { "$it kg" } ?: "—",
                             tint = Color(0xFF81C784),
                         )
                         CompositionMetricTile(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Outlined.AccessibilityNew,
                             title = "Fat Mass",
-                            value = "${fatMassKg} kg",
+                            value = fatMassKg?.let { "$it kg" } ?: "—",
                             tint = Color(0xFFFFB74D),
                         )
                     }
@@ -484,14 +483,14 @@ fun BodyFatReaderDialog(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Filled.Speed,
                             title = "Basal Metabolism",
-                            value = "${bmrKcal} kcal",
+                            value = bmrKcal?.let { "$it kcal" } ?: "—",
                             tint = Color(0xFF64B5F6),
                         )
                         CompositionMetricTile(
                             modifier = Modifier.weight(1f),
                             icon = Icons.Filled.WaterDrop,
                             title = "Body Water",
-                            value = "${bodyWaterLiters} L",
+                            value = bodyWaterLiters?.let { "$it L" } ?: "—",
                             tint = Color(0xFF4DD0E1),
                         )
                     }

@@ -20,6 +20,46 @@ data class ChangelogEntry(
 /** Newest first. The full history starts at the first public version. */
 val CHANGELOG: List<ChangelogEntry> = listOf(
     ChangelogEntry(
+        versionName = "2.11.0",
+        versionCode = 68,
+        date = "2026-09-24",
+        notes = listOf(
+            "Made the Health Card and Body Fat (BIA) scanner obtain real sensor data from Galaxy Watch Ultra BIA/MF-BIA sensors with strict real data only enforcement",
+            "Removed hardcoded/placeholder body composition values; now correctly reports 'Measurement unavailable' when real sensor data is absent",
+            "Updated Phone app to v2.11.0 (68) and Wear OS watch app to v2.10.0 (50)",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.10.0",
+        versionCode = 67,
+        date = "2026-09-24",
+        notes = listOf(
+            "Fixed scheduled check frequency so background checks strictly respect the user's requested schedule (e.g. once an hour when set to every hour)",
+            "Aligned background recording interval (RecordScheduler) with bpIntervalMinutes and added robust hardware off-body pre-checks to recording ticks",
+            "Updated Phone app to v2.10.0 (67) and Wear OS app to v2.9.0 (49)",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.9.5",
+        versionCode = 66,
+        date = "2026-09-24",
+        notes = listOf(
+            "Integrated SHealth-Companion EKG sync and clinical EKG analysis engine (bandpass filtering, Pan-Tompkins R-peak detection, PR/QRS/QT intervals, and rhythm classification)",
+            "Updated Wear OS app to v2.8.3 (48) and Phone app to v2.9.5 (66)",
+            "Added SHealthEkgSync provider integration and EkgAnalyzer for accurate clinical EKG rhythm classification",
+        ),
+    ),
+    ChangelogEntry(
+        versionName = "2.9.4",
+        versionCode = 65,
+        date = "2026-09-24",
+        notes = listOf(
+            "Implemented strict hardware off-body pre-check before scheduled check measurements so the watch never scans or turns on optical sensors when not being worn",
+            "Updated Wear OS app to v2.8.2 (47) and Phone app to v2.9.4 (65)",
+            "Prevented phantom off-body measurements from polluting historical logs",
+        ),
+    ),
+    ChangelogEntry(
         versionName = "2.9.3",
         versionCode = 64,
         date = "2026-09-24",

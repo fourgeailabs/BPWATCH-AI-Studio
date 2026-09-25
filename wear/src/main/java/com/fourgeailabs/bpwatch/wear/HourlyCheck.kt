@@ -185,6 +185,33 @@ class HourlyCheckReceiver : BroadcastReceiver() {
                         CheckScheduler.chainNext(context)
                         return@runBlocking
                     }
+                    val offBodySensor = OffBodySensor(context)
+                    val isOffBodyPreCheck = run {
+                        var off = false
+                        if (offBodySensor.present) {
+                            val thread = android.os.HandlerThread("bpwatch-offbody").apply { start() }
+                            try {
+                                val latch = java.util.concurrent.CountDownLatch(1)
+                                offBodySensor.onState = { onBody ->
+                                    off = !onBody
+                                    latch.countDown()
+                                }
+                                offBodySensor.start(android.os.Handler(thread.looper))
+                                latch.await(1500L, java.util.concurrent.TimeUnit.MILLISECONDS)
+                            } catch (_: Exception) {
+                            } finally {
+                                offBodySensor.stop()
+                                thread.quitSafely()
+                            }
+                        }
+                        off
+                    }
+                    if (isOffBodyPreCheck) {
+                        val streak = OffBodyDetector.noteEmptyAttempt(context)
+                        Log.i(TAG, "BP check skipped — watch appears off-wrist (hardware pre-check)")
+                        CheckScheduler.chainNext(context)
+                        return@runBlocking
+                    }
                     val durationMs = WatchBatterySaver.getMeasurementDurationMs(context)
                     val result = HrMeasurement.measure(context, durationMs = durationMs)
                     if (result == null || result.offBody) {

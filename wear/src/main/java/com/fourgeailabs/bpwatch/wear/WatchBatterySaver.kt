@@ -147,7 +147,7 @@ object WatchBatterySaver {
             0
         }
         val baseInterval = if (configIntervalMinutes > 0) {
-            maxOf(RECORD_NORMAL_MS, configIntervalMinutes * 60_000L)
+            configIntervalMinutes * 60_000L
         } else {
             RECORD_NORMAL_MS
         }

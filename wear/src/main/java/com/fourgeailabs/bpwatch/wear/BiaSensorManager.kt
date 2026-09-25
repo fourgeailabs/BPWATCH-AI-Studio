@@ -213,19 +213,30 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
 
                 // Calculate body composition using real measured impedance
                 val result = computeBodyComposition()
-                _lastResult.value = result
+                if (result != null) {
+                    _lastResult.value = result
+                    _scanState.value = Link.BiaScanState.COMPLETED
+                    _progress.value = 1f
+                    _elapsedMs.value = TOTAL_SCAN_DURATION_MS
 
-                WatchSettings.saveLatestBia(context, result.bodyFatPct.toFloat(), result.skeletalMuscleKg.toFloat())
-                ComplicationUpdater.requestUpdate(context)
+                    vibrateSuccess()
 
-                DataLayer.sendBiaResult(
-                    context = context,
-                    bodyFatPct = result.bodyFatPct,
-                    skeletalMuscleKg = result.skeletalMuscleKg,
-                    fatMassKg = result.fatMassKg,
-                    bmrKcal = result.bmrKcal,
-                    bodyWaterLiters = result.bodyWaterLiters,
-                )
+                    WatchSettings.saveLatestBia(context, result.bodyFatPct.toFloat(), result.skeletalMuscleKg.toFloat())
+                    ComplicationUpdater.requestUpdate(context)
+
+                    DataLayer.sendBiaResult(
+                        context = context,
+                        bodyFatPct = result.bodyFatPct,
+                        skeletalMuscleKg = result.skeletalMuscleKg,
+                        fatMassKg = result.fatMassKg,
+                        bmrKcal = result.bmrKcal,
+                        bodyWaterLiters = result.bodyWaterLiters,
+                    )
+                } else {
+                    _scanState.value = Link.BiaScanState.ERROR
+                    _progress.value = 0f
+                    vibrateWarning()
+                }
 
                 broadcastState()
             }
@@ -233,31 +244,20 @@ class BiaSensorManager(private val context: Context) : SensorEventListener {
     }
 
     private fun sampleLiveImpedance() {
-        // Collect current impedance from sensor queue or synthesize real physiological baseline
-        // Human wrist-to-hand bioimpedance at 50kHz is typically 450 - 850 Ohms
-        val currentImpedance = if (measuredResistanceSamples.isNotEmpty()) {
-            measuredResistanceSamples.last()
-        } else {
-            // Baseline human body resistance
-            540.0 + (Math.sin(System.currentTimeMillis() / 800.0) * 8.0)
-        }
-        _liveImpedanceOhms.value = currentImpedance
-        if (measuredResistanceSamples.size < 300) {
-            measuredResistanceSamples.add(currentImpedance)
-            measuredReactanceSamples.add(48.0 + (Math.cos(System.currentTimeMillis() / 900.0) * 3.0))
+        if (measuredResistanceSamples.isNotEmpty()) {
+            _liveImpedanceOhms.value = measuredResistanceSamples.last()
         }
     }
 
     /**
      * Computes body composition based on Lukaski / Deurenberg bioelectrical impedance analysis models.
-     * Uses real measured resistance R (Ohms) and reactance Xc (Ohms).
+     * Uses real measured resistance R (Ohms) and reactance Xc (Ohms). Returns null if no real sensor data exists.
      */
-    private fun computeBodyComposition(): BiaResult {
-        val avgResistance = if (measuredResistanceSamples.isNotEmpty()) {
-            measuredResistanceSamples.average().coerceIn(300.0, 1100.0)
-        } else {
-            545.0
+    private fun computeBodyComposition(): BiaResult? {
+        if (measuredResistanceSamples.isEmpty()) {
+            return null
         }
+        val avgResistance = measuredResistanceSamples.average().coerceIn(300.0, 1100.0)
         val avgReactance = if (measuredReactanceSamples.isNotEmpty()) {
             measuredReactanceSamples.average().coerceIn(25.0, 95.0)
         } else {
