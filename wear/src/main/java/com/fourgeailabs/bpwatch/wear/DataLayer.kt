@@ -12,6 +12,14 @@ object DataLayer {
      * Sends an averaged heart-rate reading (plus stress score, -1 if unknown,
      * posture, and wrist measurement location) to every connected node
      * (the phone companion via Bluetooth/Data Layer).
+     *
+     * Honesty fix: no skin-temperature sampling here. The old code waited
+     * 200 ms for a sensor event (never long enough for registration) and
+     * stamped every reading with a hardcoded 36.6 °C. Samsung gates the
+     * real skin-temp channel to Samsung Health, so the watch reports
+     * nothing; the phone reads real skin temperature from Health Connect
+     * (Samsung Health export) instead. [skinTempC] is only sent when a
+     * caller passes an explicitly measured value (> 0).
      */
     suspend fun sendHrReading(
         context: Context,
@@ -38,21 +46,9 @@ object DataLayer {
                 putString(Link.KEY_WRIST, WatchSettings.getWrist(context))
                 putInt(Link.KEY_BATTERY_LEVEL, WatchBatterySaver.getBatteryLevel(context))
                 putBoolean(Link.KEY_BATTERY_SAVER_ACTIVE, WatchBatterySaver.isBatterySaverActive(context))
-                val finalSkinTemp = if (skinTempC > 0f) {
-                    skinTempC
-                } else {
-                    try {
-                        val monitor = SkinTempMonitor(context)
-                        monitor.start()
-                        kotlinx.coroutines.delay(200L)
-                        val t = monitor.getAverageOrLast() ?: 36.6f
-                        monitor.stop()
-                        t
-                    } catch (_: Exception) {
-                        36.6f
-                    }
+                if (skinTempC > 0f) {
+                    putFloat(Link.KEY_SKIN_TEMP_C, skinTempC)
                 }
-                putFloat(Link.KEY_SKIN_TEMP_C, finalSkinTemp)
             }.toByteArray()
 
             val nodes = Wearable.getNodeClient(context).connectedNodes.await()

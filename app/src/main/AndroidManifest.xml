@@ -77,6 +77,8 @@
          silently and the app never appears in Health Connect's app list. -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+        <!-- For sleep diagnostics: detect whether Samsung Health (the sleep data writer) is installed. -->
+        <package android:name="com.sec.android.app.shealth" />
     </queries>
 
     <application

@@ -377,11 +377,7 @@ fun HomeScreen(
                             SnoreCard(viewModel = viewModel, onOpenSnore = onOpenSnore)
                         }
                         com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.EKG_CARD -> {
-                            com.fourgeailabs.bpwatch.mobile.ui.components.EkgCard(
-                                onRecordEkgClick = {
-                                    Toast.makeText(context, "Requesting EKG recording from watch via SHM-MOD ECG sensor...", Toast.LENGTH_SHORT).show()
-                                }
-                            )
+                            com.fourgeailabs.bpwatch.mobile.ui.components.EkgCard()
                         }
                         com.fourgeailabs.bpwatch.mobile.prefs.HomeCardId.ACTIVE_SENSORS -> {
                             com.fourgeailabs.bpwatch.mobile.ui.components.ActiveSensorsIndicatorCard(

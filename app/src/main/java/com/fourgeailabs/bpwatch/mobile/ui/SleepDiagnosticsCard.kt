@@ -23,15 +23,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.fourgeailabs.bpwatch.mobile.healthconnect.SleepDiagnosis
+import com.fourgeailabs.bpwatch.mobile.healthconnect.SleepDiagnosisOutcome
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 /**
- * v2.3.2: answers "why is my sleep not populating?" with facts from Health
- * Connect itself — the grant it reports, the raw sessions it holds (with
- * stage counts and the app that wrote each one), and any read error.
- * Used in Settings and in the Trends sleep empty state.
+ * Sleep diagnostics: answers "why is my sleep not populating?" with facts
+ * from Health Connect itself — the grant states it reports, the raw
+ * sessions it holds (with stage counts and the app that wrote each one),
+ * whether Samsung Health is installed, and a factual chain-of-custody
+ * outcome. Used in Settings and in the Trends sleep empty state.
  */
 @Composable
 fun SleepDiagnosticsCard(
@@ -119,10 +121,23 @@ private fun SleepDiagnosisResult(d: SleepDiagnosis) {
             else MaterialTheme.colorScheme.error,
         )
         Text(
-            "Sleep sessions in the last 36 hours: ${d.sessions36h.size}",
+            "Write-sleep permission: " +
+                if (d.writeSleepGranted) "granted ✓" else "NOT granted ✗",
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (d.writeSleepGranted) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.error,
+        )
+        Text(
+            "Samsung Health installed: " + if (d.shealthInstalled) "yes ✓" else "no ✗",
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (d.shealthInstalled) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.error,
+        )
+        Text(
+            "Sleep sessions in the last 48 hours: ${d.sessions48h.size}",
             style = MaterialTheme.typography.bodyMedium,
         )
-        d.sessions36h.forEach { s ->
+        d.sessions48h.forEach { s ->
             val hours = s.minutesCounted / 60.0
             val hoursText = if (hours == hours.toLong().toDouble()) {
                 hours.toLong().toString()
@@ -141,26 +156,25 @@ private fun SleepDiagnosisResult(d: SleepDiagnosis) {
             "Sleep sessions in the last 7 days: ${d.sessions7d}",
             style = MaterialTheme.typography.bodyMedium,
         )
-        when {
-            !d.readSleepGranted -> Text(
-                "Grant the sleep permission, then check again.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            d.sessions36h.isEmpty() && d.sessions7d == 0 -> Text(
-                "Health Connect holds no sleep sessions at all, so there is " +
-                    "nothing for the app to show. In Samsung Health: Settings → " +
-                    "Health Connect → make sure Sleep is allowed (and sync is " +
-                    "switched on there).",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            d.sessions36h.isEmpty() -> Text(
-                "Sessions exist in the last 7 days but none in the last 36 " +
-                    "hours — the Home tile only shows last night's sleep.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        Text(
+            when (d.outcome) {
+                SleepDiagnosisOutcome.SESSIONS_FOUND ->
+                    "Sleep data is flowing into Health Connect — the Home tile and Trends should populate."
+                SleepDiagnosisOutcome.HEALTH_CONNECT_UNAVAILABLE ->
+                    "Health Connect isn't available on this device (${d.sdkStatus}), so no app can read sleep data."
+                SleepDiagnosisOutcome.PERMISSION_DENIED ->
+                    "Grant the sleep permission, then check again."
+                SleepDiagnosisOutcome.SHEALTH_NOT_INSTALLED ->
+                    "Samsung Health isn't installed on this device, so nothing is writing sleep sessions. " +
+                        "Install Samsung Health on the phone and wear the watch to bed."
+                SleepDiagnosisOutcome.NO_SESSIONS_SHARED ->
+                    "Samsung Health is installed but shares no sleep sessions with Health Connect. " +
+                        "In Samsung Health: Settings → Health Connect → make sure Sleep is allowed (and sync is switched on there)."
+                SleepDiagnosisOutcome.QUERY_FAILED ->
+                    "The Health Connect query failed — check again in a moment."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

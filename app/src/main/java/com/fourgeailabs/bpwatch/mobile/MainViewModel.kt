@@ -454,9 +454,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             null
         }
 
-        val skinTempC = t?.skinTempDeltaC 
-            ?: healthLogs.value.filter { it.kind == "skin_temp" }.maxByOrNull { it.timestamp }?.value
-            ?: latest?.skinTempC?.toDouble()
+        // Honesty fix: skin temperature comes only from Health Connect
+        // (Samsung Health export). The old fallbacks stamped the watch's
+        // fabricated 36.6 °C into the UI — first via the latest Room
+        // reading, and the local "skin_temp" health logs were written from
+        // those same fabricated watch packets, so they are not trusted
+        // either. No temperature is shown unless Health Connect has one.
+        val skinTempC = t?.skinTempDeltaC
         val hrvRmssd = t?.hrvRmssd 
             ?: healthLogs.value.filter { it.kind == "hrv" }.maxByOrNull { it.timestamp }?.value
             ?: latest?.hrvRmssd?.toDouble()

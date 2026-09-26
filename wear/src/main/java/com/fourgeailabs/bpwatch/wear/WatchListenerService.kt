@@ -527,7 +527,6 @@ class WatchListenerService : WearableListenerService() {
                 stress,
                 result.bodyPosition,
                 result.activity,
-                skinTempC = result.skinTempC,
             )
             // Nudge complications to refresh with the new readings.
             try {

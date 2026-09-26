@@ -250,7 +250,6 @@ class HourlyCheckReceiver : BroadcastReceiver() {
                         stress,
                         result.bodyPosition,
                         result.activity,
-                        skinTempC = result.skinTempC,
                     )
                     // v2.3.1: push the step count alongside every scheduled
                     // check too — free freshness on top of the 15-minute
@@ -259,10 +258,10 @@ class HourlyCheckReceiver : BroadcastReceiver() {
                         StepsReporter.maybeReport(context.applicationContext)
                     } catch (_: Exception) {
                     }
-                    try {
-                        SleepTracker.checkAndSyncSleep(context.applicationContext)
-                    } catch (_: Exception) {
-                    }
+                    // Honesty fix: the old SleepTracker invented a fixed
+                    // 450-minute sleep session and wrote it into Health
+                    // Connect. It is deleted; real sleep comes only from
+                    // Samsung Health via Health Connect.
                     CheckScheduler.chainNext(context)
                 }
             } catch (_: Exception) {

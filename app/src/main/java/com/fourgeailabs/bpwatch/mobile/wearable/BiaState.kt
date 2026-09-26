@@ -1,25 +1,21 @@
 package com.fourgeailabs.bpwatch.mobile.wearable
 
-import android.content.Context
 import com.fourgeailabs.bpwatch.Link
-import com.google.android.gms.wearable.DataMap
-import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 /**
- * Live BIA (Bioelectrical Impedance Analysis) electrode contact & scan state on the phone.
+ * BIA (Bioelectrical Impedance Analysis) result state on the phone.
  *
- * Requirements:
- * - Requires both middle and ring fingers touching the physical side button electrodes on the watch.
- * - If fingers are not touching both sensors, the scan will NOT start.
- * - If contact is lost during the scan, the timer pauses and warns the user to touch the sensors again.
- * - Resumes seamlessly once contact is restored.
+ * The phone no longer requests live BIA scans: Samsung reserves the
+ * watch's BIA electrodes for Samsung Health, so a scan triggered from
+ * here could never return impedance data. This object now only carries
+ * a genuine result if one ever arrives from the watch data layer, and
+ * the UI shows real body-composition data from Health Connect instead.
  */
 object BiaState {
 
@@ -109,46 +105,8 @@ object BiaState {
         _statusMessage.value = ""
     }
 
-    fun requestStartScan(context: Context) {
-        _progress.value = 0f
-        _elapsedMs.value = 0L
-        if (!_contactDetected.value) {
-            _scanState.value = Link.BiaScanState.WAITING_FOR_CONTACT
-            _statusMessage.value = "Place middle and ring fingers on watch side button sensors to begin."
-        } else {
-            _scanState.value = Link.BiaScanState.SCANNING
-            _statusMessage.value = "Measuring body composition..."
-        }
-
-        scope.launch {
-            try {
-                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
-                val payload = DataMap().apply {
-                    putLong(Link.KEY_TIMESTAMP, System.currentTimeMillis())
-                }.toByteArray()
-                nodes.forEach { node ->
-                    Wearable.getMessageClient(context)
-                        .sendMessage(node.id, Link.PATH_BIA_REQUEST, payload)
-                        .await()
-                }
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    fun requestCancelScan(context: Context) {
-        reset()
-        scope.launch {
-            try {
-                val nodes = Wearable.getNodeClient(context).connectedNodes.await()
-                val payload = ByteArray(0)
-                nodes.forEach { node ->
-                    Wearable.getMessageClient(context)
-                        .sendMessage(node.id, Link.PATH_BIA_CANCEL, payload)
-                        .await()
-                }
-            } catch (_: Exception) {
-            }
-        }
-    }
+    // Honesty fix: the phone no longer requests fake BIA scans. The watch's
+    // BIA channel is reserved by Samsung for Samsung Health, so any scan
+    // request this app sent could never return impedance data. Real
+    // body-composition data arrives only via Health Connect.
 }

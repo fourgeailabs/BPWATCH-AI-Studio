@@ -663,28 +663,36 @@ class HealthConnectManager(private val context: Context) {
     }
 
     /**
-     * v2.3.2 sleep diagnostics: answers "why is sleep not populating?" with
-     * facts instead of guesses — the grant state Health Connect itself
-     * reports, the raw sessions it actually holds (with stage counts and
-     * the package that wrote each one), and any exception from the read.
-     * Never throws; the error string carries failures to the UI.
+     * Sleep diagnostics: answers "why is sleep not populating?" with facts
+     * instead of guesses — the grant states Health Connect itself reports,
+     * the raw sessions it actually holds (with stage counts and the package
+     * that wrote each one), whether Samsung Health (the data writer) is
+     * installed, and a factual chain-of-custody outcome. Never throws; the
+     * error string carries failures to the UI.
      */
     suspend fun diagnoseSleep(): SleepDiagnosis {
         val now = Instant.now()
+        val granted = grantedPermissions()
+        val readSleep = HealthPermission.getReadPermission(SleepSessionRecord::class)
+        val writeSleep = HealthPermission.getWritePermission(SleepSessionRecord::class)
+        val shealthInstalled = try {
+            context.packageManager.getPackageInfo("com.sec.android.app.shealth", 0)
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        }
+        val status = sdkStatusText()
         return try {
             withTimeoutOrNull(HC_QUERY_TIMEOUT_MS) {
-                val readSleep =
-                    HealthPermission.getReadPermission(SleepSessionRecord::class)
-                val granted = grantedPermissions()
-                val sessions36h = client.readRecords(
+                val sessions48h = client.readRecords(
                     ReadRecordsRequest(
                         recordType = SleepSessionRecord::class,
                         timeRangeFilter = TimeRangeFilter.between(
-                            now.minus(36, ChronoUnit.HOURS), now
+                            now.minus(48, ChronoUnit.HOURS), now
                         ),
                     )
                 ).records
-                    .filter { it.endTime.isAfter(now.minus(36, ChronoUnit.HOURS)) }
+                    .filter { it.endTime.isAfter(now.minus(48, ChronoUnit.HOURS)) }
                     .map { s ->
                         SleepSessionInfo(
                             start = s.startTime,
@@ -704,27 +712,47 @@ class HealthConnectManager(private val context: Context) {
                     )
                 ).records.size
                 SleepDiagnosis(
-                    sdkStatus = sdkStatusText(),
+                    sdkStatus = status,
                     readSleepGranted = readSleep in granted,
-                    sessions36h = sessions36h,
+                    writeSleepGranted = writeSleep in granted,
+                    sessions48h = sessions48h,
                     sessions7d = sessions7d,
+                    shealthInstalled = shealthInstalled,
+                    outcome = when {
+                        status != "available" ->
+                            SleepDiagnosisOutcome.HEALTH_CONNECT_UNAVAILABLE
+                        readSleep !in granted ->
+                            SleepDiagnosisOutcome.PERMISSION_DENIED
+                        sessions7d > 0 ->
+                            SleepDiagnosisOutcome.SESSIONS_FOUND
+                        !shealthInstalled ->
+                            SleepDiagnosisOutcome.SHEALTH_NOT_INSTALLED
+                        else ->
+                            SleepDiagnosisOutcome.NO_SESSIONS_SHARED
+                    },
                     error = null,
                 )
             } ?: SleepDiagnosis(
-                sdkStatus = sdkStatusText(),
-                readSleepGranted = false,
-                sessions36h = emptyList(),
+                sdkStatus = status,
+                readSleepGranted = readSleep in granted,
+                writeSleepGranted = writeSleep in granted,
+                sessions48h = emptyList(),
                 sessions7d = 0,
+                shealthInstalled = shealthInstalled,
+                outcome = SleepDiagnosisOutcome.QUERY_FAILED,
                 error = "Health Connect query timed out.",
             )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             SleepDiagnosis(
-                sdkStatus = sdkStatusText(),
-                readSleepGranted = false,
-                sessions36h = emptyList(),
+                sdkStatus = status,
+                readSleepGranted = readSleep in granted,
+                writeSleepGranted = writeSleep in granted,
+                sessions48h = emptyList(),
                 sessions7d = 0,
+                shealthInstalled = shealthInstalled,
+                outcome = SleepDiagnosisOutcome.QUERY_FAILED,
                 error = "${e.javaClass.simpleName}: ${e.message}",
             )
         }
@@ -1288,15 +1316,38 @@ data class SleepSessionInfo(
     val originPackage: String?,
 )
 
-/** v2.3.2: the full answer to "why is my sleep not populating?" */
+/** The full factual answer to "why is my sleep not populating?" */
 data class SleepDiagnosis(
     val sdkStatus: String,
     val readSleepGranted: Boolean,
-    val sessions36h: List<SleepSessionInfo>,
+    val writeSleepGranted: Boolean,
+    val sessions48h: List<SleepSessionInfo>,
     val sessions7d: Int,
+    val shealthInstalled: Boolean,
+    val outcome: SleepDiagnosisOutcome,
     /** Non-null when the diagnostic read itself failed. */
     val error: String?,
 )
+
+/**
+ * Where the sleep-data chain of custody is broken (or intact).
+ * Checked in order: SDK → read permission → any sessions at all →
+ * Samsung Health presence → sharing into Health Connect.
+ */
+enum class SleepDiagnosisOutcome {
+    /** Sessions found in the last 7 days — the data is flowing. */
+    SESSIONS_FOUND,
+    /** Health Connect is not available on this device at all. */
+    HEALTH_CONNECT_UNAVAILABLE,
+    /** The read-sleep permission has not been granted to this app. */
+    PERMISSION_DENIED,
+    /** Samsung Health is not installed, so nothing can be writing sleep data. */
+    SHEALTH_NOT_INSTALLED,
+    /** Samsung Health is installed but shares no sleep sessions with Health Connect. */
+    NO_SESSIONS_SHARED,
+    /** The Health Connect query itself failed or timed out. */
+    QUERY_FAILED,
+}
 
 /**
  * Headline metrics for the v2.0 dashboard. Every field is null when Health

@@ -817,14 +817,21 @@ class PhoneListenerService : WearableListenerService() {
         }
     }
 
+    /**
+     * Honesty fix: never invent a classification. The old code stamped every
+     * packet "Sinus Rhythm" when none arrived; the watch's synthetic ECG
+     * generator is gone, so only a packet carrying real samples AND a real
+     * classification is persisted. Anything else is dropped, not faked.
+     */
     private fun handleEkgSync(event: MessageEvent) {
         try {
             val map = DataMap.fromByteArray(event.data)
             val voltages = map.getFloatArray(Link.KEY_EKG_DATA) ?: floatArrayOf()
-            val classification = map.getString(Link.KEY_EKG_CLASSIFICATION) ?: "Sinus Rhythm"
+            val classification = map.getString(Link.KEY_EKG_CLASSIFICATION)
             val timestamp = map.getLong(Link.KEY_EKG_TIMESTAMP, System.currentTimeMillis())
-
-            WatchDataMapper.mapAndPersistEkg(applicationContext, voltages, classification, timestamp)
+            if (voltages.isNotEmpty() && !classification.isNullOrBlank()) {
+                WatchDataMapper.mapAndPersistEkg(applicationContext, voltages, classification, timestamp)
+            }
         } catch (_: Exception) {
         }
     }
