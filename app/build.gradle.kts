@@ -4,6 +4,27 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
 }
 
+// Play release signing: credentials live in keystore.properties at the repo
+// root (git-ignored, never committed). The file is absent in CI, where only
+// the debug build runs — then the release signing config stays unset and
+// project configuration must not fail.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val hasReleaseSigning = keystorePropertiesFile.exists()
+val keystoreProperties = mutableMapOf<String, String>()
+if (hasReleaseSigning) {
+  // Minimal key=value parse. (java.util.Properties doesn't resolve in this
+  // build's Kotlin DSL scope, so don't rely on it.)
+  keystorePropertiesFile.forEachLine { raw ->
+    val line = raw.trim()
+    if (line.isNotEmpty() && !line.startsWith("#") && !line.startsWith("!")) {
+      val sep = line.indexOfFirst { it == '=' || it == ':' }
+      if (sep > 0) {
+        keystoreProperties[line.substring(0, sep).trim()] = line.substring(sep + 1).trim()
+      }
+    }
+  }
+}
+
 android {
   namespace = "com.fourgeailabs.bpwatch"
   compileSdk = 35
@@ -11,7 +32,7 @@ android {
   defaultConfig {
     applicationId = "com.fourgeailabs.bpwatch"
     minSdk = 26
-    targetSdk = 34
+    targetSdk = 35
     versionCode = 68
     versionName = "2.11.0"
 
@@ -26,12 +47,28 @@ android {
       keyAlias = if (pinnedKeystore.exists()) "bpwatch-debug" else "androiddebugkey"
       keyPassword = "android"
     }
+    if (hasReleaseSigning) {
+      create("release") {
+        storeFile = file(keystoreProperties.getValue("storeFile"))
+        storePassword = keystoreProperties["storePassword"]
+        keyAlias = keystoreProperties["keyAlias"]
+        keyPassword = keystoreProperties["keyPassword"]
+      }
+    }
   }
 
   buildTypes {
     release {
       isMinifyEnabled = false
+      if (hasReleaseSigning) {
+        signingConfig = signingConfigs.getByName("release")
+      }
     }
+  }
+  lint {
+    // Pre-existing upstream lint findings are recorded in the baseline
+    // so release builds pass; NEW lint errors still fail the build.
+    baseline = file("lint-baseline.xml")
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17

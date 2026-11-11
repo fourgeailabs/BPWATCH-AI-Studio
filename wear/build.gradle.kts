@@ -3,6 +3,27 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Play release signing: credentials live in keystore.properties at the repo
+// root (git-ignored, never committed). The file is absent in CI, where only
+// the debug build runs — then the release signing config stays unset and
+// project configuration must not fail.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val hasReleaseSigning = keystorePropertiesFile.exists()
+val keystoreProperties = mutableMapOf<String, String>()
+if (hasReleaseSigning) {
+    // Minimal key=value parse. (java.util.Properties doesn't resolve in
+    // this build's Kotlin DSL scope, so don't rely on it.)
+    keystorePropertiesFile.forEachLine { raw ->
+        val line = raw.trim()
+        if (line.isNotEmpty() && !line.startsWith("#") && !line.startsWith("!")) {
+            val sep = line.indexOfFirst { it == '=' || it == ':' }
+            if (sep > 0) {
+                keystoreProperties[line.substring(0, sep).trim()] = line.substring(sep + 1).trim()
+            }
+        }
+    }
+}
+
 android {
     namespace = "com.fourgeailabs.bpwatch"
     compileSdk = 35
@@ -10,18 +31,14 @@ android {
     defaultConfig {
         applicationId = "com.fourgeailabs.bpwatch"
         minSdk = 30 // Wear OS 3+
-        targetSdk = 34
+        targetSdk = 35
         // Kept in sync with :app (see its versioning policy comment).
         versionCode = 50
         versionName = "2.10.0"
     }
 
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-        }
-    }
-
+    // signingConfigs is declared before buildTypes: the release build type
+    // looks its config up by name when it is configured.
     signingConfigs {
         // Pinned debug keystore shared with :mobile — see the comment there.
         // Both APKs must keep a stable signature or updates wipe user data.
@@ -31,6 +48,29 @@ android {
             keyAlias = "bpwatch-debug"
             keyPassword = "android"
         }
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(keystoreProperties.getValue("storeFile"))
+                storePassword = keystoreProperties["storePassword"]
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
+    lint {
+        // Pre-existing upstream lint findings are recorded in the baseline
+        // so release builds pass; NEW lint errors still fail the build.
+        baseline = file("lint-baseline.xml")
     }
 
     buildFeatures {
