@@ -12,26 +12,21 @@ import androidx.health.connect.client.aggregate.AggregationResult
 import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.permission.HealthPermission
-import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
-import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HydrationRecord
-import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.MealType
 import androidx.health.connect.client.records.NutritionRecord
-import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.SkinTemperatureRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
-import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -144,13 +139,9 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getWritePermission(BloodPressureRecord::class),
         // Dashboard tiles (v2.0).
         HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getWritePermission(StepsRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
-        HealthPermission.getWritePermission(DistanceRecord::class),
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
-        HealthPermission.getWritePermission(TotalCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
-        HealthPermission.getWritePermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(WeightRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getWritePermission(SleepSessionRecord::class),
@@ -165,23 +156,11 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
         HealthPermission.getWritePermission(HeartRateVariabilityRmssdRecord::class),
         HealthPermission.getReadPermission(RespiratoryRateRecord::class),
-        HealthPermission.getWritePermission(RespiratoryRateRecord::class),
-        HealthPermission.getReadPermission(Vo2MaxRecord::class),
-        HealthPermission.getWritePermission(Vo2MaxRecord::class),
         HealthPermission.getReadPermission(BodyFatRecord::class),
         HealthPermission.getWritePermission(BodyFatRecord::class),
-        HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
-        HealthPermission.getWritePermission(BasalMetabolicRateRecord::class),
-        HealthPermission.getReadPermission(FloorsClimbedRecord::class),
-        HealthPermission.getWritePermission(FloorsClimbedRecord::class),
-        HealthPermission.getReadPermission(LeanBodyMassRecord::class),
-        HealthPermission.getWritePermission(LeanBodyMassRecord::class),
         HealthPermission.getReadPermission(SkinTemperatureRecord::class),
         HealthPermission.getWritePermission(SkinTemperatureRecord::class),
         HealthPermission.getReadPermission(BodyTemperatureRecord::class),
-        HealthPermission.getWritePermission(BodyTemperatureRecord::class),
-        HealthPermission.getReadPermission(OxygenSaturationRecord::class),
-        HealthPermission.getWritePermission(OxygenSaturationRecord::class),
     )
 
     /**
